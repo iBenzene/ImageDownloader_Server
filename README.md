@@ -37,6 +37,8 @@ services:
       start_period: 30s
 ```
 
+然后在客户端的「设置」👉「服务端地址」中填入 `http://your_server_ip:3080/api` 或 `https://your_domain/api`，并填入正确的 `TOKEN`。
+
 ### ⚙️ 环境变量
 
 | 变量名 | 说明 | 默认值 |
@@ -44,6 +46,7 @@ services:
 | PORT | 监听的端口号 | 3080 |
 | TOKEN | 服务端令牌，用于鉴权，需要自己设置 | default_token |
 | PIXIV_COOKIE | 如需使用 Pixiv 图片下载器，请自行通过浏览器抓包获取 Pixiv Cookie | - |
+| XHS_COOKIE | 极少数笔记需要 Cookie（含游客 Cookie）才能访问，请自行通过浏览器抓包获取「小红书」Cookie（必须包含 `web_session`） | - |
 | S3_ENDPOINT | 符合 S3 规范的对象存储服务器，包括 Amazon S3、Cloudflare R2、MinIO 等，例如 `https://<accountid>.r2.cloudflarestorage.com` | - |
 | S3_BUCKET | S3 存储桶的名称 | - |
 | S3_ACCESS_KEY_ID | S3 服务的访问凭证 | - |
@@ -52,6 +55,6 @@ services:
 
 ### 🔄 代理下载
 
-目前服务端支持代理下载 Pixiv 的图片。
+目前服务端可代理资源的下载，并缓存到 S3 对象存储服务中，以解决网络不畅、资源失效等问题。
 
-‼️ 如需使用代理下载功能，请将服务端部署到 **海外服务器** 上，并配置好 S3 对象存储服务的相关环境变量。
+‼️ 如需使用代理下载功能，请配置好 S3 对象存储服务的相关环境变量。

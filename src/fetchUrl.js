@@ -10,13 +10,37 @@ const commonHeaders = {
 };
 
 /** 发起网络请求, 获取包含目标资源 URL 的 HTML 文本或 JSON 数据 */
-const fetchUrl = async (url, downloader) => {
+const fetchUrl = async (url, downloader, cookie = '') => {
     // 获取请求头和目标地址
     const headers = {
         ...commonHeaders,
-        ...(await getHeaders(downloader)),
+        ...(await getHeaders(downloader, cookie)),
     };
-    const targetUrl = getTargetUrl(url, downloader);
+    let targetUrl = getTargetUrl(url, downloader);
+
+    // 针对小红书短链 (xhslink.com), 需要手动解析重定向以保留 Cookie, 因为 Axios 会在跨域重定向时丢失 Cookie
+    if (
+        cookie &&
+        (downloader === '小红书图片下载器' ||
+            downloader === '小红书视频下载器' ||
+            downloader === '小红书实况图片下载器') &&
+        targetUrl.includes('xhslink.com')
+    ) {
+        try {
+            const redirectResponse = await axios.get(targetUrl, {
+                headers,
+                maxRedirects: 0,
+                validateStatus: status => status >= 300 && status < 400,
+            });
+            if (redirectResponse.headers.location) {
+                targetUrl = redirectResponse.headers.location;
+                console.debug(`[${new Date().toLocaleString()}] 🔗 解析小红书短链跳转: ${targetUrl}`);
+            }
+        } catch (error) {
+            // 如果不是 3xx, 或者发生其他错误, 则忽略, 继续尝试直接请求
+            console.warn(`[${new Date().toLocaleString()}] ⚠️ 解析小红书短链失败, 将尝试直接请求: ${error.message}`);
+        }
+    }
 
     // 向目标地址发起网络请求
     try {
@@ -35,7 +59,7 @@ const fetchUrl = async (url, downloader) => {
 module.exports = fetchUrl;
 
 /** 获取网络请求的请求头 */
-const getHeaders = async downloader => {
+const getHeaders = async (downloader, cookie = '') => {
     switch (downloader) {
         case '米游社图片下载器':
             return {
@@ -44,10 +68,11 @@ const getHeaders = async downloader => {
             };
         case '微博图片下载器': {
             // 请求生成一个游客 Cookie
-            const cookie = await generateWeiboCookie();
+            // const weiboCookie = cookie || await generateWeiboCookie();
+            const weiboCookie = await generateWeiboCookie();
 
             let subCookie = '';
-            for (const cookieItem of cookie) {
+            for (const cookieItem of weiboCookie) {
                 if (cookieItem.startsWith('SUB=')) {
                     // 只保留 SUB Cookie
                     subCookie = cookieItem;
@@ -65,6 +90,7 @@ const getHeaders = async downloader => {
             };
         }
         case 'Pixiv 图片下载器': {
+            // const pixivCookie = cookie || getApp().get('pixivCookie');
             const pixivCookie = getApp().get('pixivCookie');
             if (!pixivCookie) {
                 throw new Error('使用 Pixiv 图片下载器要求正确配置 PIXIV_COOKIE 环境变量');
@@ -78,6 +104,21 @@ const getHeaders = async downloader => {
             };
         }
         default: // 小红书图片下载器、小红书视频下载器
+            if (cookie) {
+                if (downloader === '小红书图片下载器' || downloader === '小红书视频下载器' || downloader === '小红书实况图片下载器') {
+                    for (const cookieItem of cookie.split(';').map(item => item.trim())) {
+                        if (cookieItem.startsWith('web_session')) {
+                            console.log(`[${new Date().toLocaleString()}] 🍪 小红书 Cookie: ${cookieItem}`);
+                            return {
+                                Cookie: cookieItem
+                            };
+                        }
+                    }
+                }
+                return {
+                    Cookie: cookie
+                };
+            }
             return {};
     }
 };

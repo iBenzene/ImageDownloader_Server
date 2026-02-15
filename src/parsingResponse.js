@@ -54,12 +54,16 @@ const parsingResponse = async (url, response, downloader, useProxy) => {
 
 module.exports = parsingResponse;
 
-/** 确保 URL 使用的是 HTTPS 协议 */
+/** 确保 URL 使用的是 HTTPS 协议, 如果不是 HTTP/HTTPS 则返回 null */
 const ensureHttps = url => {
-	if (url.startsWith('http://')) {
-		return url.replace('http://', 'https://');
+	try {
+		const u = new URL(url);
+		if (u.protocol === 'http:') { u.protocol = 'https:'; }
+		if (u.protocol !== 'https:') { return null; }
+		return u.toString();
+	} catch {
+		return null;
 	}
-	return url;
 };
 
 /** 从 HTML 文本中提取资源的 URL */
@@ -73,8 +77,10 @@ const extractUrlsFromHtml = async (response, regex, downloader, useProxy) => { /
 	const urls = [];
 	let match;
 	while ((match = regex.exec(html)) !== null) {
-		const decodedUrl = match[1].replace(/\\u002F/g, '/');
-		urls.push(ensureHttps(decodedUrl));
+		const url = ensureHttps(match[1].replace(/\\u002F/g, '/'));
+		if (url) {
+			urls.push(url);
+		}
 	}
 
 	// 如果未开启代理, 直接返回原始 URLs
@@ -104,7 +110,9 @@ const extractUrlsFromJson = async (url, response, downloader, useProxy) => { // 
 		case '米游社图片下载器':
 			data.data.post.post.images.forEach(image => {
 				const url = ensureHttps(image);
-				urls.push(url);
+				if (url) {
+					urls.push(url);
+				}
 			});
 
 			// 如果开启了代理, 则将图片缓存到 S3 并返回 S3 URLs
@@ -122,8 +130,10 @@ const extractUrlsFromJson = async (url, response, downloader, useProxy) => { // 
 
 		case '微博图片下载器':
 			data.pic_ids.forEach(picId => {
-				const url = `https://wx1.sinaimg.cn/large/${picId}.jpg`;
-				urls.push(ensureHttps(url));
+				const url = ensureHttps(`https://wx1.sinaimg.cn/large/${picId}.jpg`);
+				if (url) {
+					urls.push(url);
+				}
 			});
 
 			// 如果开启了代理, 则将图片缓存到 S3 并返回 S3 URLs
@@ -142,7 +152,9 @@ const extractUrlsFromJson = async (url, response, downloader, useProxy) => { // 
 			data.body.forEach(page => {
 				if (page.urls && page.urls.original) {
 					const url = ensureHttps(page.urls.original);
-					urls.push(url);
+					if (url) {
+						urls.push(url);
+					}
 				}
 			});
 
@@ -152,7 +164,7 @@ const extractUrlsFromJson = async (url, response, downloader, useProxy) => { // 
 					const headers = {
 						Referer: 'https://www.pixiv.net/',
 						Cookie: getApp().get('pixivCookie') || ''
-					}
+					};
 					const illustId = url.split('/').pop();
 					const mapping = await batchCacheResources(urls, 'pixiv', headers, 5, illustId);
 					return urls.map(u => mapping.get(u) || u);
@@ -192,17 +204,18 @@ const extractLivePhotoUrls = async (response, downloader, useProxy) => { // 小�
 		imageList.forEach((item, index) => {
 			if (item.urlDefault) {
 				const imageUrl = ensureHttps(item.urlDefault);
+				if (!imageUrl) { return; }
 
 				// 检查是否为实况图片
 				if (item.livePhoto && item.stream) {
 					// 查找第一个可用的视频编码格式
-					const videoUrl = getFirstAvailableVideoUrl(item.stream);
+					const videoUrl = ensureHttps(getFirstAvailableVideoUrl(item.stream));
 
 					if (videoUrl) {
 						// 实况图片: 同时返回封面和视频
 						resultObjects.push({
 							cover: imageUrl,
-							video: ensureHttps(videoUrl),
+							video: videoUrl,
 						});
 					} else {
 						// 标记为实况图片但没有视频 URL, 当作普通图片处理

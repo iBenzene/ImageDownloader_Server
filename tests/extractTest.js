@@ -24,6 +24,8 @@ const mockApp = {
                 return process.env.PIXIV_PROXY_ENABLED !== 'false';
             case 'pixivCookie':
                 return process.env.PIXIV_COOKIE || '';
+            case 'xhsCookie':
+                return process.env.XHS_COOKIE || '';
             case 's3Endpoint':
                 return process.env.S3_ENDPOINT || '';
             case 's3Bucket':
@@ -61,7 +63,32 @@ async function testExtractByUrl(url, downloader, useProxy) {
 
         // 解析网络请求的响应
         console.log('[Test] Parsing response...');
-        const mediaUrls = await parsingResponse(url, response, downloader, useProxy);
+        let mediaUrls = await parsingResponse(url, response, downloader, useProxy);
+
+        // 处理未提取到资源的情况
+        if (mediaUrls.length === 0) {
+            console.warn(`[Test] 请求 ${url} 的响应: ${JSON.stringify(response.data, null, 2).substring(0, 500)}... (truncated)`);
+
+            const xhsCookie = mockApp.get('xhsCookie');
+            if (xhsCookie && (downloader === '小红书图片下载器' || downloader === '小红书实况图片下载器' || downloader === '小红书视频下载器')) {
+                console.log('[Test] ⚠️ 未提取到「小红书」资源, 尝试携带 Cookie 重试...');
+                try {
+                    // 携带 Cookie 再次发起请求
+                    const retryResponse = await fetchUrl(url, downloader, xhsCookie);
+
+                    // 解析新的响应
+                    const retryMediaUrls = await parsingResponse(url, retryResponse, downloader, useProxy);
+                    if (retryMediaUrls.length > 0) {
+                        console.log(`[Test] ✅ 携带 Cookie 重试成功, 提取到 ${retryMediaUrls.length} 个资源`);
+                        mediaUrls = retryMediaUrls;
+                    } else {
+                        console.warn('[Test] ❌ 携带 Cookie 重试后仍未提取到资源');
+                    }
+                } catch (retryError) {
+                    console.error(`[Test] ❌ 携带 Cookie 重试请求失败: ${retryError.message}`);
+                }
+            }
+        }
 
         console.log('[Test] Extracted mediaUrls:', JSON.stringify(mediaUrls, null, 2));
         return mediaUrls;
