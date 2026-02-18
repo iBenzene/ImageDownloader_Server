@@ -1,8 +1,9 @@
 // src/downloadProxy.js
 
 const axios = require('axios');
-const crypto = require('crypto');
 const mime = require('mime-types');
+const crypto = require('crypto');
+const path = require('path');
 const { createS3Client, objectExists, putObject } = require('./s3Client');
 const { getApp } = require('../utils/common');
 
@@ -79,6 +80,49 @@ const cacheResourceToS3 = async (url, prefix, headers = {}, sourceId = null) => 
 };
 
 /**
+ * 将单个资源上传到 S3, 并返回 S3 URL
+ */
+const uploadResourceToS3 = async (url, contentType, prefix, sourceId = null) => {
+    const fs = require('fs');
+    if (!fs.existsSync(url)) {
+        throw new Error(`Local file not found: ${url}`);
+    }
+
+    const app = getApp();
+    const s3Endpoint = app.get('s3Endpoint');
+    const s3Bucket = app.get('s3Bucket');
+    const s3AccessKeyId = app.get('s3AccessKeyId');
+    const s3SecretAccessKey = app.get('s3SecretAccessKey');
+    const s3PublicBase = app.get('s3PublicBase');
+
+    if (!s3Endpoint || !s3Bucket) {
+        throw new Error('S3 configuration missing');
+    }
+
+    const s3 = createS3Client({
+        endpoint: s3Endpoint,
+        accessKeyId: s3AccessKeyId,
+        secretAccessKey: s3SecretAccessKey
+    });
+
+    // 生成 key
+    const key = generateKey(url, prefix, sourceId);
+
+    try {
+        const exists = await objectExists(s3, s3Bucket, key);
+        if (!exists) {
+            const buffer = fs.readFileSync(url);
+            console.debug(`[${new Date().toLocaleString()}] 上传资源到 S3: ${key}, size: ${buffer.length}`);
+            await putObject(s3, s3Bucket, key, buffer, contentType);
+        }
+    } catch (err) {
+        throw new Error(`S3 操作失败: ${err.message}`, { cause: err });
+    }
+
+    return buildPublicUrl({ publicBase: s3PublicBase, endpoint: s3Endpoint, bucket: s3Bucket, key });
+};
+
+/**
  * 下载单个资源
  */
 const downloadResource = async (url, headers) => {
@@ -98,29 +142,28 @@ const downloadResource = async (url, headers) => {
     return { buffer: Buffer.from(response.data), contentType: contentType || 'application/octet-stream' };
 };
 
-module.exports = { batchCacheResources };
+module.exports = { batchCacheResources, uploadResourceToS3 };
 
 /**
  * 根据 URL 生成缓存 Key
  * 格式: cache/<prefix>/[sourceId/]<filename>.<ext>
  */
 const generateKey = (url, prefix, sourceId = null) => {
-    // 尝试从 URL 中提取文件后缀 (默认为 jpg)
-    let ext = 'jpg';
-    const extMatch = url.match(/\.([a-zA-Z0-9]+)(\?|$)/);
-    if (extMatch) {
-        ext = extMatch[1];
-    }
+    // 去掉 URL 的查询参数
+    const cleanUrl = url.split('?')[0];
+
+    // 尝试提取文件后缀 (默认为 jpg)
+    let ext = path.extname(cleanUrl).substring(1) || 'jpg';
 
     // 生成文件名
     let filename;
     if (sourceId) {
-        // 如果有 sourceId, 使用 URL 的最后一部分作为文件名, 但要去掉后缀和查询参数
-        const lastPart = url.split('/').pop().split('?')[0];
-        filename = lastPart.includes('.') ? lastPart.substring(0, lastPart.lastIndexOf('.')) : lastPart;
+        // 如果有 sourceId, 使用 URL 的最后一部分作为文件名
+        const basename = path.basename(cleanUrl);
+        filename = basename.includes('.') ? basename.substring(0, basename.lastIndexOf('.')) : basename;
     } else {
         // 如果没有 sourceId, 则对 URL 进行 MD5 哈希
-        filename = crypto.createHash('md5').update(url).digest('hex');
+        filename = crypto.createHash('md5').update(cleanUrl).digest('hex');
     }
 
     // 拼接最终路径: cache/<prefix>/[sourceId/]<filename>.<ext>

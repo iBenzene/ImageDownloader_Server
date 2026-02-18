@@ -23,6 +23,8 @@ const mockApp = {
                 return process.env.PIXIV_PROXY_ENABLED !== 'false';
             case 'pixivCookie':
                 return process.env.PIXIV_COOKIE || '';
+            case 'bilibiliCookie':
+                return process.env.BILIBILI_COOKIE || '';
             default:
                 return process.env[key] || null;
         }

@@ -103,6 +103,17 @@ const getHeaders = async (downloader, cookie = '') => {
                 Referer: 'https://www.pixiv.net/',
             };
         }
+        case '哔哩哔哩视频下载器': {
+            // const bilibiliCookie = cookie || getApp().get('bilibiliCookie');
+            const bilibiliCookie = getApp().get('bilibiliCookie');
+            if (bilibiliCookie) {
+                console.log(`[${new Date().toLocaleString()}] 🍪 哔哩哔哩 Cookie: ${bilibiliCookie}`);
+                return {
+                    Cookie: bilibiliCookie,
+                };
+            }
+            return {};
+        }
         default: // 小红书图片下载器、小红书视频下载器
             if (cookie) {
                 if (downloader === '小红书图片下载器' || downloader === '小红书视频下载器' || downloader === '小红书实况图片下载器') {
@@ -138,7 +149,7 @@ const getTargetUrl = (url, downloader) => {
             const illustId = url.split('/').pop();
             return `https://www.pixiv.net/ajax/illust/${illustId}/pages`;
         }
-        default: // 小红书图片下载器、小红书视频下载器
+        default: // 小红书图片下载器、小红书视频下载器、哔哩哔哩视频下载器
             return url;
     }
 };

@@ -1,16 +1,16 @@
 // tests/extractTest.js
 // 示例: npm test -- "小红书图片下载器" "https://xhslink.com/o/..." true
 
-const parsingResponse = require('../src/parsingResponse');
-const fetchUrl = require('../src/fetchUrl');
-const { setApp } = require('../utils/common');
-
 // 加载环境变量
 try {
     require('dotenv').config({ path: '.env.local' });
 } catch (error) {
     console.warn(`Failed to load .env or .env.local: ${error.message}`);
 }
+
+const parsingResponse = require('../src/parsingResponse');
+const fetchUrl = require('../src/fetchUrl');
+const { setApp } = require('../utils/common');
 
 /**
  * Mocking Express App for parsingResponse's and fetchUrl's dependency on common.getApp()

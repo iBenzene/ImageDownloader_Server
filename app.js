@@ -36,8 +36,10 @@ app.set('token', token);
 // 从环境变量中读取 Cookies
 const pixivCookie = process.env.PIXIV_COOKIE || '';
 const xhsCookie = process.env.XHS_COOKIE || '';
+const bilibiliCookie = process.env.BILIBILI_COOKIE || '';
 app.set('pixivCookie', pixivCookie);
 app.set('xhsCookie', xhsCookie);
+app.set('bilibiliCookie', bilibiliCookie);
 
 // 从环境变量中读取 S3 配置
 const s3Endpoint = process.env.S3_ENDPOINT || '';
@@ -53,9 +55,6 @@ app.set('s3SecretAccessKey', s3SecretAccessKey);
 app.set('s3PublicBase', s3PublicBase);
 
 // 从环境变量中读取其他配置
-/**
- * 由于客户端没有实现通过 Pixiv Cookie 下载图片的细节, 因此默认让服务端代理 Pixiv 图片的下载
- */
 const pixivProxyEnabled = process.env.PIXIV_PROXY_ENABLED === 'false' ? false : true;
 app.set('pixivProxyEnabled', pixivProxyEnabled);
 
