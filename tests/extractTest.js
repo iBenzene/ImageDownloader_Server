@@ -20,12 +20,12 @@ const mockApp = {
     get: key => {
         // 参考 app.js 的逻辑
         switch (key) {
-            case 'pixivProxyEnabled':
-                return process.env.PIXIV_PROXY_ENABLED !== 'false';
             case 'pixivCookie':
                 return process.env.PIXIV_COOKIE || '';
             case 'xhsCookie':
                 return process.env.XHS_COOKIE || '';
+            case 'twitterCookie':
+                return process.env.TWITTER_COOKIE || '';
             case 's3Endpoint':
                 return process.env.S3_ENDPOINT || '';
             case 's3Bucket':

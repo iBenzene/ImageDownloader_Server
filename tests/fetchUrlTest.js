@@ -19,12 +19,12 @@ try {
 const mockApp = {
     get: key => {
         switch (key) {
-            case 'pixivProxyEnabled':
-                return process.env.PIXIV_PROXY_ENABLED !== 'false';
             case 'pixivCookie':
                 return process.env.PIXIV_COOKIE || '';
             case 'bilibiliCookie':
                 return process.env.BILIBILI_COOKIE || '';
+            case 'twitterCookie':
+                return process.env.TWITTER_COOKIE || '';
             default:
                 return process.env[key] || null;
         }

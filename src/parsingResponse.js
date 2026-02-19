@@ -19,7 +19,9 @@ const parsingResponse = async (url, response, downloader, useProxy) => {
 		);
 	} else if (downloader === '米游社图片下载器' ||
 		downloader === '微博图片下载器' ||
-		downloader === 'Pixiv 图片下载器') {
+		downloader === 'Pixiv 图片下载器' ||
+		downloader === 'Twitter (X) 视频下载器' ||
+		downloader === 'Twitter (X) 图片下载器') {
 		return await extractUrlsFromJson(
 			url,
 			response,
@@ -150,7 +152,7 @@ const extractUrlsFromJson = async (url, response, downloader, useProxy) => { // 
 			});
 
 			// 如果开启了代理, 则将图片缓存到 S3 并返回 S3 URLs
-			if (shouldUseProxy(useProxy) || getApp().get('pixivProxyEnabled')) {
+			if (shouldUseProxy(useProxy)) {
 				try {
 					const headers = {
 						Referer: 'https://www.pixiv.net/',
@@ -166,6 +168,71 @@ const extractUrlsFromJson = async (url, response, downloader, useProxy) => { // 
 			}
 			return urls;
 		}
+		case 'Twitter (X) 视频下载器':
+		case 'Twitter (X) 图片下载器': {
+			try {
+				// 尝试查找包含推文内容的时间线入口
+				// 通常在 instructions 中, 类型为 TimelineAddEntries
+				let instructions = data.data.threaded_conversation_with_injections_v2.instructions;
+				let entries = [];
+				if (instructions && instructions.length > 0) {
+					if (instructions[0].type === 'TimelineAddEntries') {
+						entries = instructions[0].entries;
+					} else {
+						const addEntries = instructions.find(i => i.type === 'TimelineAddEntries');
+						entries = addEntries ? addEntries.entries : [];
+					}
+				}
+
+				// 遍历所有入口, 寻找包含推文内容的条目
+				// entryId 通常包含 'tweet-'
+				for (const entry of entries) {
+					if (entry.entryId.includes('tweet-')) {
+						const result = entry.content.itemContent.tweet_results.result;
+						// Tweet 对象可能直接在 result 中, 或者在 result.tweet 中 (取决于查询类型)
+						const tweet = result.tweet || result;
+						const legacy = tweet.legacy;
+
+						if (legacy && legacy.extended_entities && legacy.extended_entities.media) {
+							const mediaList = legacy.extended_entities.media;
+							// 遍历所有媒体实体 (图片或视频)
+							for (const media of mediaList) {
+								if (downloader === 'Twitter (X) 视频下载器' && media.type === 'video') {
+									if (media.video_info && media.video_info.variants) {
+										// 寻找最高码率的视频
+										const mp4Variants = media.video_info.variants.filter(v => v.content_type === 'video/mp4');
+										if (mp4Variants.length > 0) {
+											// 按码率降序排序, 取最大值
+											mp4Variants.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+											urls.push(mp4Variants[0].url);
+										}
+									}
+								} else if (downloader === 'Twitter (X) 图片下载器' && media.type === 'photo') {
+									// 获取原图
+									urls.push(`${media.media_url_https}?name=orig`);
+								}
+							}
+						}
+					}
+				}
+
+				// 如果开启了代理, 则将图片缓存到 S3 并返回 S3 URLs
+				if (shouldUseProxy(useProxy)) {
+					try {
+						const suffix = url.split('/').pop().split('?')[0];
+						const prefix = getPrefix(downloader);
+						const mapping = await batchCacheResources(urls, prefix, {}, 5, suffix);
+						return urls.map(u => mapping.get(u) || u);
+					} catch (error) {
+						console.error(`[${new Date().toLocaleString()}] 批量缓存 Twitter 资源失败: ${error.message}`);
+						return urls;
+					}
+				}
+			} catch (e) {
+				console.error(`[${new Date().toLocaleString()}] 解析 Twitter 响应失败: ${e.message}`);
+			}
+			return urls;
+		}
 		default:
 			return [];
 	}
@@ -177,5 +244,6 @@ const getPrefix = downloader => {
 	if (downloader.includes('米游社')) { return 'miyoushe'; }
 	if (downloader.includes('微博')) { return 'weibo'; }
 	if (downloader.includes('Pixiv')) { return 'pixiv'; }
+	if (downloader.includes('Twitter')) { return 'twitter'; }
 	return 'other';
 };

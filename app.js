@@ -34,12 +34,14 @@ const token = process.env.TOKEN || 'default_token';
 app.set('token', token);
 
 // 从环境变量中读取 Cookies
-const pixivCookie = process.env.PIXIV_COOKIE || '';
 const xhsCookie = process.env.XHS_COOKIE || '';
 const bilibiliCookie = process.env.BILIBILI_COOKIE || '';
-app.set('pixivCookie', pixivCookie);
+const pixivCookie = process.env.PIXIV_COOKIE || '';
+const twitterCookie = process.env.TWITTER_COOKIE || '';
 app.set('xhsCookie', xhsCookie);
 app.set('bilibiliCookie', bilibiliCookie);
+app.set('pixivCookie', pixivCookie);
+app.set('twitterCookie', twitterCookie);
 
 // 从环境变量中读取 S3 配置
 const s3Endpoint = process.env.S3_ENDPOINT || '';
@@ -55,8 +57,7 @@ app.set('s3SecretAccessKey', s3SecretAccessKey);
 app.set('s3PublicBase', s3PublicBase);
 
 // 从环境变量中读取其他配置
-const pixivProxyEnabled = process.env.PIXIV_PROXY_ENABLED === 'false' ? false : true;
-app.set('pixivProxyEnabled', pixivProxyEnabled);
+// ...
 
 // 注册 App 实例
 const { setApp } = require('./utils/common');
