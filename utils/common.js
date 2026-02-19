@@ -1,4 +1,12 @@
 // utils/common.js
+
+const fs = require('fs');
+const axios = require('axios');
+const path = require('path');
+const { promisify } = require('util');
+const stream = require('stream');
+const pipeline = promisify(stream.pipeline);
+
 const vm = require('vm');
 
 // 注册 App 示例, 方便在其他模块中获取
@@ -120,4 +128,21 @@ const extractJsonFromHtml = (html, variableName) => {
     }
 };
 
-module.exports = { setApp, getApp, commonHeaders, shouldUseProxy, ensureHttps, extractJsonFromHtml };
+/**
+ * 下载流文件
+ * @param {string} url 下载地址
+ * @param {string} outputPath 输出路径
+ * @param {Object} headers 请求头
+ */
+const downloadStream = async (url, outputPath, headers = {}) => {
+    const response = await axios({
+        url,
+        method: 'GET',
+        responseType: 'stream',
+        headers
+    });
+
+    await pipeline(response.data, fs.createWriteStream(outputPath));
+};
+
+module.exports = { setApp, getApp, commonHeaders, shouldUseProxy, ensureHttps, extractJsonFromHtml, downloadStream };

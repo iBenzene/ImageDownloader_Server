@@ -79,11 +79,12 @@ const getHeaders = async (downloader, cookie = '') => {
                 Referer: 'https://weibo.com/',
             };
         }
-        case 'Pixiv 图片下载器': {
+        case 'Pixiv 图片下载器':
+        case 'Pixiv 动图下载器': {
             // const pixivCookie = cookie || getApp().get('pixivCookie');
             const pixivCookie = getApp().get('pixivCookie');
             if (!pixivCookie) {
-                throw new Error('使用 Pixiv 图片下载器要求正确配置 PIXIV_COOKIE 环境变量');
+                throw new Error('使用 Pixiv 下载器要求正确配置 PIXIV_COOKIE 环境变量');
             }
             return {
                 //（必不可少）Cookie
@@ -173,6 +174,13 @@ const getTargetUrl = (url, downloader) => {
                 throw new Error('无法从 URL 中提取插画 ID');
             }
             return `https://www.pixiv.net/ajax/illust/${illustId}/pages`;
+        }
+        case 'Pixiv 动图下载器': {
+            const illustId = url.split('/').pop();
+            if (!illustId) {
+                throw new Error('无法从 URL 中提取插画 ID');
+            }
+            return `https://www.pixiv.net/ajax/illust/${illustId}/ugoira_meta`;
         }
         case 'Twitter (X) 视频下载器':
         case 'Twitter (X) 图片下载器': {

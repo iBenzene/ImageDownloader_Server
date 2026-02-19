@@ -4,6 +4,7 @@ const { batchCacheResources } = require('./downloadProxy');
 const { getApp, shouldUseProxy, ensureHttps } = require('../utils/common');
 const { extractXhsLivePhotoUrls } = require('./xhsHandler');
 const { extractBilibiliUrls } = require('./bilibiliHandler');
+const { extractPixivUgoiraUrls } = require('./pixivHandler');
 
 /** 解析响应的文本, 提取资源的 URL */
 const parsingResponse = async (url, response, downloader, useProxy) => {
@@ -20,6 +21,7 @@ const parsingResponse = async (url, response, downloader, useProxy) => {
 	} else if (downloader === '米游社图片下载器' ||
 		downloader === '微博图片下载器' ||
 		downloader === 'Pixiv 图片下载器' ||
+		downloader === 'Pixiv 动图下载器' ||
 		downloader === 'Twitter (X) 视频下载器' ||
 		downloader === 'Twitter (X) 图片下载器') {
 		return await extractUrlsFromJson(
@@ -91,7 +93,7 @@ const extractUrlsFromHtml = async (url, response, downloader, useProxy) => { // 
 };
 
 /** 从 JSON 数据中提取资源的 URL */
-const extractUrlsFromJson = async (url, response, downloader, useProxy) => { // 米游社图片下载器、微博图片下载器、Pixiv 图片下载器
+const extractUrlsFromJson = async (url, response, downloader, useProxy) => { // 米游社图片下载器、微博图片下载器、Pixiv 图片下载器、Pixiv 动图下载器
 	const data = response.data;
 	if (!data || typeof data !== 'object') {
 		console.error(`[${new Date().toLocaleString()}] 响应不是 JSON 数据`);
@@ -167,6 +169,10 @@ const extractUrlsFromJson = async (url, response, downloader, useProxy) => { // 
 				}
 			}
 			return urls;
+		}
+		case 'Pixiv 动图下载器': {
+			const illustId = url.split('/').pop();
+			return await extractPixivUgoiraUrls(data.body, illustId);
 		}
 		case 'Twitter (X) 视频下载器':
 		case 'Twitter (X) 图片下载器': {

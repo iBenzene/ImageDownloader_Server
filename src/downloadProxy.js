@@ -157,12 +157,8 @@ const generateKey = (url, prefix, sourceId = null, useOriginalFilename = false) 
 
     // 生成文件名
     let filename;
-    if (sourceId) {
-        // 如果有 sourceId, 使用 URL 的最后一部分作为文件名
-        const basename = path.basename(cleanUrl);
-        filename = basename.includes('.') ? basename.substring(0, basename.lastIndexOf('.')) : basename;
-    } else if (useOriginalFilename) {
-        // 保留原始文件名
+    if (sourceId || useOriginalFilename) {
+        // 如果有 sourceId, 或者显式要求保留原始文件名, 则使用 URL 的最后一部分作为文件名
         const basename = path.basename(cleanUrl);
         filename = basename.includes('.') ? basename.substring(0, basename.lastIndexOf('.')) : basename;
     } else {

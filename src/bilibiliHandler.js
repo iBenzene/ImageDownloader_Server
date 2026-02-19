@@ -2,24 +2,20 @@
 
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
-const stream = require('stream');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
-const { promisify } = require('util');
 const crypto = require('crypto');
 const { uploadResourceToS3 } = require('./downloadProxy');
-const { extractJsonFromHtml } = require('../utils/common');
-
-const pipeline = promisify(stream.pipeline);
+const { extractJsonFromHtml, downloadStream } = require('../utils/common');
 
 // 配置 ffmpeg 路径
 ffmpeg.setFfmpegPath(ffmpegPath);
 
 /**
- * 提取 bilibili 视频和音频 URL, 合并并返回本地文件路径
+ * 提取 bilibili 视频和音频 URL, 合并并上传到 S3
  */
 const extractBilibiliUrls = async (html, url) => {
+    let tempDir = null;
     try {
         // 提取 playinfo
         const playinfo = extractJsonFromHtml(html, 'window.__playinfo__');
@@ -62,19 +58,26 @@ const extractBilibiliUrls = async (html, url) => {
             filename += `_${audioQualityId}`;
         }
 
-        const tempDir = path.join(__dirname, '../tmp');
-        if (!fs.existsSync(tempDir)) {
-            fs.mkdirSync(tempDir, { recursive: true });
+        // 创建临时目录
+        const baseDir = path.join(__dirname, '../tmp');
+        if (!fs.existsSync(baseDir)) {
+            fs.mkdirSync(baseDir, { recursive: true });
         }
-        const videoPath = path.join(tempDir, `${filename}_video.m4s`); // B站通常是 m4s
-        const audioPath = path.join(tempDir, `${filename}_audio.m4s`);
+        tempDir = path.join(baseDir, `bilibili_${filename}_${Date.now()}`);
+        fs.mkdirSync(tempDir, { recursive: true });
+
+        const videoPath = path.join(tempDir, `video.m4s`); // B站通常是 m4s
+        const audioPath = path.join(tempDir, `audio.m4s`);
         const outputPath = path.join(tempDir, `${filename}.mp4`);
 
         // 下载流
         console.log(`[${new Date().toLocaleString()}] 开始下载 bilibili 流...`);
+        const headers = {
+            'Referer': 'https://www.bilibili.com/'
+        };
         await Promise.all([
-            downloadStream(videoUrl, videoPath),
-            downloadStream(audioUrl, audioPath)
+            downloadStream(videoUrl, videoPath, headers),
+            downloadStream(audioUrl, audioPath, headers)
         ]);
 
         // 合并音视频
@@ -85,10 +88,9 @@ const extractBilibiliUrls = async (html, url) => {
         console.log(`[${new Date().toLocaleString()}] 开始上传 bilibili 视频 to S3...`);
         const s3Url = await uploadResourceToS3(outputPath, 'video/mp4', 'bilibili', null, true);
 
-        // 清理本地文件
-        fs.unlinkSync(videoPath);
-        fs.unlinkSync(audioPath);
-        fs.unlinkSync(outputPath);
+        // 清理临时文件
+        fs.rmSync(tempDir, { recursive: true, force: true });
+        tempDir = null;
 
         console.log(`[${new Date().toLocaleString()}] bilibili 视频处理完成: ${s3Url}`);
         return [s3Url];
@@ -96,6 +98,15 @@ const extractBilibiliUrls = async (html, url) => {
     } catch (error) {
         console.error(`[${new Date().toLocaleString()}] bilibili 视频处理失败: ${error.message}`);
         return [];
+    } finally {
+        // 检查临时文件是否清理干净
+        if (tempDir && fs.existsSync(tempDir)) {
+            try {
+                fs.rmSync(tempDir, { recursive: true, force: true });
+            } catch (e) {
+                console.error(`[${new Date().toLocaleString()}] 清理临时文件失败: ${e.message}`);
+            }
+        }
     }
 };
 
@@ -148,22 +159,6 @@ const getBestStreams = playinfo => {
     }
 
     return { videoUrl, audioUrl, videoQualityId, audioQualityId };
-};
-
-/**
- * 下载流文件
- */
-const downloadStream = async (url, outputPath) => {
-    const response = await axios({
-        url,
-        method: 'GET',
-        responseType: 'stream',
-        headers: {
-            'Referer': 'https://www.bilibili.com/'
-        }
-    });
-
-    await pipeline(response.data, fs.createWriteStream(outputPath));
 };
 
 /**
