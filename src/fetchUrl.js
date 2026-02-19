@@ -2,6 +2,7 @@
 
 const { default: axios } = require('axios');
 const { getApp, commonHeaders } = require('../utils/common');
+const { URL } = require('url');
 
 /** 发起网络请求, 获取包含目标资源 URL 的 HTML 文本或 JSON 数据 */
 const fetchUrl = async (url, downloader, cookie = '') => {
@@ -12,28 +13,23 @@ const fetchUrl = async (url, downloader, cookie = '') => {
     };
     let targetUrl = getTargetUrl(url, downloader);
 
-    // 针对小红书短链 (xhslink.com), 需要手动解析重定向以保留 Cookie, 因为 Axios 会在跨域重定向时丢失 Cookie
-    if (
-        cookie &&
-        (downloader === '小红书图片下载器' ||
-            downloader === '小红书视频下载器' ||
-            downloader === '小红书实况图片下载器') &&
-        targetUrl.includes('xhslink.com')
-    ) {
-        try {
-            const redirectResponse = await axios.get(targetUrl, {
-                headers,
-                maxRedirects: 0,
-                validateStatus: status => status >= 300 && status < 400,
-            });
-            if (redirectResponse.headers.location) {
-                targetUrl = redirectResponse.headers.location;
-                console.debug(`[${new Date().toLocaleString()}] 🔗 解析小红书短链跳转: ${targetUrl}`);
-            }
-        } catch (error) {
-            // 如果不是 3xx, 或者发生其他错误, 则忽略, 继续尝试直接请求
-            console.warn(`[${new Date().toLocaleString()}] ⚠️ 解析小红书短链失败, 将尝试直接请求: ${error.message}`);
-        }
+    // 针对短链, 需要手动解析重定向以保留 Cookie, 因为 Axios 会在跨域重定向时丢失 Cookie
+    const isShortLink = (
+        (
+            (
+                downloader === '小红书图片下载器' ||
+                downloader === '小红书视频下载器' ||
+                downloader === '小红书实况图片下载器'
+            ) &&
+            targetUrl.includes('xhslink.com')
+        ) ||
+        (
+            downloader === '哔哩哔哩视频下载器' &&
+            (targetUrl.includes('b23.tv') || targetUrl.includes('bilibili.com'))
+        )
+    );
+    if ((cookie || headers.Cookie) && isShortLink) {
+        targetUrl = await resolveRedirect(targetUrl, headers);
     }
 
     // 向目标地址发起网络请求
@@ -148,6 +144,7 @@ const getTargetUrl = (url, downloader) => {
     }
 };
 
+/** 生成微博游客 Cookie */
 const generateWeiboCookie = async () => {
     const headers = {
         ...commonHeaders,
@@ -163,4 +160,39 @@ const generateWeiboCookie = async () => {
     );
 
     return response.headers['set-cookie'];
+};
+
+/** 手动处理重定向, 避免 Axios 在跨域跳转时丢失 Cookie */
+const resolveRedirect = async (url, headers, maxRedirects = 5) => {
+    let currentUrl = url;
+    try {
+        let redirectCount = 0;
+        console.debug(`[${new Date().toLocaleString()}] 🔍 开始解析重定向: ${currentUrl}`);
+
+        while (redirectCount < maxRedirects) {
+            const response = await axios.get(currentUrl, {
+                headers,
+                maxRedirects: 0,
+                validateStatus: status => status >= 200 && status < 400
+            });
+
+            if (response.status >= 300 && response.headers.location) {
+                let nextUrl = response.headers.location;
+                // 处理相对路径
+                if (nextUrl.startsWith('/')) {
+                    const u = new URL(currentUrl);
+                    nextUrl = `${u.protocol}//${u.host}${nextUrl}`;
+                }
+                console.debug(`[${new Date().toLocaleString()}] 🔗 解析重定向中: ${currentUrl} -> ${nextUrl}`);
+                currentUrl = nextUrl;
+                redirectCount++;
+            } else {
+                break;
+            }
+        }
+        console.debug(`[${new Date().toLocaleString()}] ✅ 解析重定向完成: ${currentUrl}`);
+    } catch (error) {
+        console.warn(`[${new Date().toLocaleString()}] ⚠️ 解析重定向时出错: ${error.message}`);
+    }
+    return currentUrl;
 };

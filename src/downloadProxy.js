@@ -71,9 +71,9 @@ const cacheResourceToS3 = async (url, prefix, headers = {}, sourceId = null) => 
             console.debug(`[${new Date().toLocaleString()}] 上传资源到 S3: ${key}, size: ${buffer.length}`);
             await putObject(s3, s3Bucket, key, buffer, contentType);
         }
-    } catch (err) {
+    } catch (error) {
         // 如果出错, 抛出异常让上层捕获
-        throw new Error(`S3 操作失败: ${err.message}`, { cause: err });
+        throw new Error(`S3 操作失败: ${error.message}`, { cause: error });
     }
 
     return buildPublicUrl({ publicBase: s3PublicBase, endpoint: s3Endpoint, bucket: s3Bucket, key });
@@ -115,8 +115,8 @@ const uploadResourceToS3 = async (url, contentType, prefix, sourceId = null) => 
             console.debug(`[${new Date().toLocaleString()}] 上传资源到 S3: ${key}, size: ${buffer.length}`);
             await putObject(s3, s3Bucket, key, buffer, contentType);
         }
-    } catch (err) {
-        throw new Error(`S3 操作失败: ${err.message}`, { cause: err });
+    } catch (error) {
+        throw new Error(`S3 操作失败: ${error.message}`, { cause: error });
     }
 
     return buildPublicUrl({ publicBase: s3PublicBase, endpoint: s3Endpoint, bucket: s3Bucket, key });
