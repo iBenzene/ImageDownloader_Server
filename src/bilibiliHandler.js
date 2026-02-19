@@ -2,9 +2,11 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
-const crypto = require('crypto');
+
 const { uploadResourceToS3 } = require('./downloadProxy');
 const { extractJsonFromHtml, downloadStream } = require('../utils/common');
 

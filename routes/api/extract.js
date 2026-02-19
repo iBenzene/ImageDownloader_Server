@@ -5,6 +5,8 @@ const router = express.Router();
 
 const fetchUrl = require('../../src/fetchUrl');
 const parsingResponse = require('../../src/parsingResponse');
+const { readExtractCache, writeExtractCache } = require('../../src/extractCache');
+const { shouldUseProxy } = require('../../utils/common');
 
 /** 提取出指定 URL 内的图片、实况图片或视频的 URLs */
 router.get('/', async (req, res) => {
@@ -18,6 +20,17 @@ router.get('/', async (req, res) => {
     }
 
     try {
+        const proxyEnabled = shouldUseProxy(useProxy);
+
+        // 如果开启了代理, 优先读取 extract 请求缓存, 命中则直接返回 S3 中的数据
+        if (proxyEnabled) {
+            const cachedMediaUrls = await readExtractCache(url, downloader);
+            if (cachedMediaUrls && cachedMediaUrls.length > 0) {
+                console.log(`[${new Date().toLocaleString()}] extract cache hit: ${downloader}, url: ${url}`);
+                return res.json({ mediaUrls: cachedMediaUrls });
+            }
+        }
+
         // 发起网络请求
         const response = await fetchUrl(url, downloader);
 
@@ -50,6 +63,10 @@ router.get('/', async (req, res) => {
             } else {
                 throw new Error('响应中不包含任何有效资源的 URL');
             }
+        }
+
+        if (proxyEnabled && mediaUrls.length > 0) {
+            await writeExtractCache(url, downloader, mediaUrls);
         }
 
         console.log(`[${new Date().toLocaleString()}] mediaUrls: ${mediaUrls}`);

@@ -79,7 +79,7 @@ const getHeaders = async (downloader, cookie = '') => {
                 Referer: 'https://weibo.com/',
             };
         }
-        case 'Pixiv 图片下载器':
+        case 'Pixiv 插画下载器':
         case 'Pixiv 动图下载器': {
             // const pixivCookie = cookie || getApp().get('pixivCookie');
             const pixivCookie = getApp().get('pixivCookie');
@@ -168,7 +168,7 @@ const getTargetUrl = (url, downloader) => {
             }
             return `https://weibo.com/ajax/statuses/show?id=${weiboId}&locale=zh-CN`;
         }
-        case 'Pixiv 图片下载器': {
+        case 'Pixiv 插画下载器': {
             const illustId = url.split('/').pop();
             if (!illustId) {
                 throw new Error('无法从 URL 中提取插画 ID');

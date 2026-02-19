@@ -38,6 +38,8 @@ const mockApp = {
                 return process.env.S3_SECRET_ACCESS_KEY || '';
             case 's3PublicBase':
                 return process.env.S3_PUBLIC_BASE || '';
+            case 'extractCacheTtl':
+                return process.env.EXTRACT_CACHE_TTL_SECONDS || '';
             default:
                 return process.env[key] || null;
         }

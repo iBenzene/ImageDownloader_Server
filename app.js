@@ -57,7 +57,8 @@ app.set('s3SecretAccessKey', s3SecretAccessKey);
 app.set('s3PublicBase', s3PublicBase);
 
 // 从环境变量中读取其他配置
-// ...
+const extractCacheTtl = process.env.EXTRACT_CACHE_TTL_SECONDS || '';
+app.set('extractCacheTtl', extractCacheTtl);
 
 // 注册 App 实例
 const { setApp } = require('./utils/common');
