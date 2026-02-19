@@ -6,9 +6,10 @@ const axios = require('axios');
 const stream = require('stream');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
-const { v4: uuidv4 } = require('uuid');
 const { promisify } = require('util');
+const crypto = require('crypto');
 const { uploadResourceToS3 } = require('./downloadProxy');
+const { extractJsonFromHtml } = require('../utils/common');
 
 const pipeline = promisify(stream.pipeline);
 
@@ -18,31 +19,47 @@ ffmpeg.setFfmpegPath(ffmpegPath);
 /**
  * 提取 bilibili 视频和音频 URL, 合并并返回本地文件路径
  */
-const extractBilibiliUrls = async html => {
+const extractBilibiliUrls = async (html, url) => {
     try {
         // 提取 playinfo
-        const playinfo = extractPlayInfo(html);
+        const playinfo = extractJsonFromHtml(html, 'window.__playinfo__');
         if (!playinfo) {
             console.error(`[${new Date().toLocaleString()}] 未找到 bilibili playinfo`);
             return [];
         }
 
         // 选择最佳流
-        const { videoUrl, audioUrl } = selectBestStreams(playinfo);
+        const { videoUrl, audioUrl } = getBestStreams(playinfo);
         if (!videoUrl || !audioUrl) {
             console.error(`[${new Date().toLocaleString()}] 未能提取到有效的视频或音频流`);
             return [];
         }
 
         // 生成唯一文件名
-        const fileId = uuidv4();
+        let filename;
+        const initialState = extractJsonFromHtml(html, 'window.__INITIAL_STATE__');
+        if (initialState && initialState.bvid) {
+            filename = initialState.bvid;
+            console.log(`[${new Date().toLocaleString()}] 使用 window.__INITIAL_STATE__.bvid 作为文件名: ${filename}`);
+        } else {
+            // 尝试从 URL 中提取 ID
+            filename = extractBvIdFromUrl(url);
+            if (filename) {
+                console.log(`[${new Date().toLocaleString()}] 使用 URL 中的 ID 作为文件名: ${filename}`);
+            } else {
+                // 如果都失败了, 使用去除所有查询参数后的 URL 哈希值作为文件名
+                const cleanUrl = url.split('?')[0];
+                filename = crypto.createHash('md5').update(cleanUrl).digest('hex');
+                console.log(`[${new Date().toLocaleString()}] 使用 URL 哈希值作为文件名: ${filename}`);
+            }
+        }
         const tempDir = path.join(__dirname, '../tmp');
         if (!fs.existsSync(tempDir)) {
             fs.mkdirSync(tempDir, { recursive: true });
         }
-        const videoPath = path.join(tempDir, `${fileId}_video.m4s`); // B站通常是 m4s
-        const audioPath = path.join(tempDir, `${fileId}_audio.m4s`);
-        const outputPath = path.join(tempDir, `${fileId}.mp4`);
+        const videoPath = path.join(tempDir, `${filename}_video.m4s`); // B站通常是 m4s
+        const audioPath = path.join(tempDir, `${filename}_audio.m4s`);
+        const outputPath = path.join(tempDir, `${filename}.mp4`);
 
         // 下载流
         console.log(`[${new Date().toLocaleString()}] 开始下载 bilibili 流...`);
@@ -74,62 +91,26 @@ const extractBilibiliUrls = async html => {
 };
 
 /**
- * 从 HTML 中提取 window.__playinfo__
+ * 从 URL 中提取 BV 号
  */
-const extractPlayInfo = html => {
+const extractBvIdFromUrl = url => {
+    if (!url) return null;
     try {
-        const startKeyword = 'window.__playinfo__';
-        const startIndex = html.indexOf(startKeyword);
-        if (startIndex === -1) {
-            console.log('extractPlayInfo: keyword not found');
-            return null;
-        }
-
-        let i = startIndex + startKeyword.length;
-        // Scan for the first '{'
-        while (i < html.length && html[i] !== '{') {
-            i++;
-        }
-
-        if (i >= html.length) {
-            console.log('extractPlayInfo: starting brace not found');
-            return null;
-        }
-
-        let braceCount = 0;
-        let inString = false;
-        let startJsonIndex = i;
-
-        for (; i < html.length; i++) {
-            const char = html[i];
-
-            if (char === '"' && (i === 0 || html[i - 1] !== '\\')) {
-                inString = !inString;
-            }
-
-            if (!inString) {
-                if (char === '{') {
-                    braceCount++;
-                } else if (char === '}') {
-                    braceCount--;
-                }
-            }
-
-            if (braceCount === 0) {
-                const jsonStr = html.substring(startJsonIndex, i + 1);
-                return JSON.parse(jsonStr);
-            }
-        }
+        // 移除查询参数
+        const cleanUrl = url.split('?')[0];
+        // 匹配 BV 号
+        const match = cleanUrl.match(/(BV[0-9a-zA-Z]{10})/);
+        return match ? match[1] : null;
     } catch (e) {
-        console.error('解析 playinfo 失败', e);
+        console.error('提取 BV 号失败', e);
+        return null;
     }
-    return null;
 };
 
 /**
- * 选择质量最高的视频和音频流
+ * 获取质量最高的视频和音频流
  */
-const selectBestStreams = playinfo => {
+const getBestStreams = playinfo => {
     const dash = playinfo.data?.dash;
     if (!dash) { return { videoUrl: null, audioUrl: null }; }
 

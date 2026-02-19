@@ -1,16 +1,16 @@
 // src/xhsHandler.js
 
-const vm = require('vm');
+const { extractJsonFromHtml, shouldUseProxy, ensureHttps } = require('../utils/common');
 const { batchCacheResources } = require('./downloadProxy');
 
 /** 提取小红书实况封面和视频的 URL */
-const extractXhsLivePhotoUrls = async (response, downloader, useProxy) => { // 小红书实况图片下载器
+const extractXhsLivePhotoUrls = async (response, useProxy) => { // 小红书实况图片下载器
     const html = response.data;
     if (typeof html !== 'string') {
         console.error(`[${new Date().toLocaleString()}] 响应不是 HTML 文本`);
         return [];
     }
-    const state = extractInitialState(html);
+    const state = extractJsonFromHtml(html, 'window.__INITIAL_STATE__');
     if (!state) { return []; }
 
     // 路径: id = note.firstNoteId -> note.noteDetailMap[id].note.imageList
@@ -85,30 +85,9 @@ const extractXhsLivePhotoUrls = async (response, downloader, useProxy) => { // �
             video: item.video ? (mapping.get(item.video) || item.video) : null
         }));
     } catch (error) {
-        console.error(`[${new Date().toLocaleString()}] 批量缓存 ${downloader} 资源失败: ${error.message}`);
+        console.error(`[${new Date().toLocaleString()}] 批量缓存小红书实况图片失败: ${error.message}`);
         return resultObjects;
     }
-};
-
-/** 确保 URL 使用的是 HTTPS 协议, 如果不是 HTTP/HTTPS 则返回 null */
-const ensureHttps = url => {
-    try {
-        const u = new URL(url);
-        if (u.protocol === 'http:') { u.protocol = 'https:'; }
-        if (u.protocol !== 'https:') { return null; }
-        return u.toString();
-    } catch {
-        return null;
-    }
-};
-
-/** 判断是否应该使用代理 */
-const shouldUseProxy = useProxy => {
-    let enabled = false;
-    if (useProxy !== undefined) {
-        enabled = useProxy === 'true';
-    }
-    return !!enabled;
 };
 
 /** 从 stream 对象中获取第一个可用视频的 URL */
@@ -141,79 +120,6 @@ const getFirstAvailableVideoUrl = stream => {
     }
 
     return null;
-};
-
-/** 从 HTML 中提取 window.__INITIAL_STATE__ 对象 */
-const extractInitialState = html => {
-    if (typeof html !== 'string') { throw new Error('html must be a string'); }
-
-    const assignIdx = html.indexOf('window.__INITIAL_STATE__');
-    if (assignIdx === -1) { return null; }
-
-    // 找到等号后的第一个 "{"
-    const eqIdx = html.indexOf('=', assignIdx);
-    if (eqIdx === -1) { return null; }
-
-    let i = eqIdx + 1;
-
-    // 跳过空白
-    while (i < html.length && /\s/.test(html[i])) { i++; }
-    if (html[i] !== '{') { return null; }
-
-    // 简单大括号配对, 考虑字符串与转义
-    let brace = 0, inStr = false, strQuote = '', escape = false;
-    const start = i;
-    for (; i < html.length; i++) {
-        const ch = html[i];
-
-        if (inStr) {
-            if (escape) {
-                escape = false;
-            } else if (ch === '\\') {
-                escape = true;
-            } else if (ch === strQuote) {
-                inStr = false;
-            }
-            continue;
-        }
-
-        if (ch === '\'' || ch === '"') {
-            inStr = true;
-            strQuote = ch;
-            continue;
-        }
-        if (ch === '{') { brace++; }
-        if (ch === '}') {
-            brace--;
-            if (brace === 0) {
-                // i 指向最后一个 '}'
-                break;
-            }
-        }
-    }
-
-    if (brace !== 0) { return null; }
-
-    let objLiteral = html.slice(start, i + 1);
-
-    // 把 \u002F 还原为 /
-    objLiteral = objLiteral.replace(/\\u002F/g, '/');
-
-    // JSON/JS 兼容: 把 ": undefined" 替换为 ": null"
-    // 只处理键值对语境, 避免误伤字符串
-    objLiteral = objLiteral.replace(/:\s*undefined\b/g, ': null');
-
-    // 在 VM 沙箱里只返回这段对象
-    const sandbox = {};
-    try {
-        const script = new vm.Script('(' + objLiteral + ')');
-        const context = vm.createContext(sandbox);
-        const state = script.runInContext(context, { timeout: 50 });
-        return state;
-    } catch (error) {
-        console.error(`[${new Date().toLocaleString()}] 解析 window.__INITIAL_STATE__ 时出错: ${error}`);
-        return null;
-    }
 };
 
 module.exports = { extractXhsLivePhotoUrls };

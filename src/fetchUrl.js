@@ -1,13 +1,7 @@
 // src/fetchUrl.js
 
 const { default: axios } = require('axios');
-const { getApp } = require('../utils/common');
-
-const commonHeaders = {
-    Accept: '*/*',
-    'User-Agent':
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-};
+const { getApp, commonHeaders } = require('../utils/common');
 
 /** 发起网络请求, 获取包含目标资源 URL 的 HTML 文本或 JSON 数据 */
 const fetchUrl = async (url, downloader, cookie = '') => {

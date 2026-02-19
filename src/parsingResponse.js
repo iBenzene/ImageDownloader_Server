@@ -1,7 +1,7 @@
 // src/parsingResponse.js
 
 const { batchCacheResources } = require('./downloadProxy');
-const { getApp } = require('../utils/common');
+const { getApp, shouldUseProxy, ensureHttps } = require('../utils/common');
 const { extractXhsLivePhotoUrls } = require('./xhsHandler');
 const { extractBilibiliUrls } = require('./bilibiliHandler');
 
@@ -33,18 +33,6 @@ const parsingResponse = async (url, response, downloader, useProxy) => {
 
 module.exports = parsingResponse;
 
-/** 确保 URL 使用的是 HTTPS 协议, 如果不是 HTTP/HTTPS 则返回 null */
-const ensureHttps = url => {
-	try {
-		const u = new URL(url);
-		if (u.protocol === 'http:') { u.protocol = 'https:'; }
-		if (u.protocol !== 'https:') { return null; }
-		return u.toString();
-	} catch {
-		return null;
-	}
-};
-
 /** 从 HTML 文本中提取资源的 URL */
 const extractUrlsFromHtml = async (url, response, downloader, useProxy) => { // 小红书图片下载器、小红书视频下载器、小红书实况图片下载器、哔哩哔哩视频下载器
 	const html = response.data;
@@ -56,7 +44,7 @@ const extractUrlsFromHtml = async (url, response, downloader, useProxy) => { // 
 	// 对 HTML 文本进行特殊处理
 	switch (downloader) {
 		case '小红书实况图片下载器':
-			return await extractXhsLivePhotoUrls(response, downloader, useProxy);
+			return await extractXhsLivePhotoUrls(response, useProxy);
 		case '哔哩哔哩视频下载器': {
 			return await extractBilibiliUrls(html, url);
 		}
@@ -95,7 +83,7 @@ const extractUrlsFromHtml = async (url, response, downloader, useProxy) => { // 
 		const mapping = await batchCacheResources(urls, prefix);
 		return urls.map(u => mapping.get(u) || u);
 	} catch (error) {
-		console.error(`[${new Date().toLocaleString()}] 批量缓存 ${downloader} 资源失败: ${error.message}`);
+		console.error(`[${new Date().toLocaleString()}] 批量缓存${downloader === '小红书图片下载器' ? '小红书图片' : '小红书视频'}失败: ${error.message}`);
 		return urls;
 	}
 };
@@ -190,13 +178,4 @@ const getPrefix = downloader => {
 	if (downloader.includes('微博')) { return 'weibo'; }
 	if (downloader.includes('Pixiv')) { return 'pixiv'; }
 	return 'other';
-};
-
-/** 判断是否应该使用代理 */
-const shouldUseProxy = useProxy => {
-	let enabled = false;
-	if (useProxy !== undefined) {
-		enabled = useProxy === 'true';
-	}
-	return !!enabled;
 };
