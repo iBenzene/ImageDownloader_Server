@@ -112,7 +112,7 @@ const extractUrlsFromJson = async (url, response, downloader, useProxy) => { // 
 			if (shouldUseProxy(useProxy)) {
 				try {
 					const postId = url.split('/').pop();
-					const mapping = await batchCacheResources(urls, 'miyoushe', {}, 5, postId);
+					const mapping = await batchCacheResources(urls, getPrefix(downloader), {}, 5, postId);
 					return urls.map(u => mapping.get(u) || u);
 				} catch (error) {
 					console.error(`[${new Date().toLocaleString()}] 批量缓存米游社图片失败: ${error.message}`);
@@ -133,7 +133,7 @@ const extractUrlsFromJson = async (url, response, downloader, useProxy) => { // 
 			if (shouldUseProxy(useProxy)) {
 				try {
 					const weiboId = url.split('/').pop().split('?')[0];
-					const mapping = await batchCacheResources(urls, 'weibo', {}, 5, weiboId);
+					const mapping = await batchCacheResources(urls, getPrefix(downloader), {}, 5, weiboId);
 					return urls.map(u => mapping.get(u) || u);
 				} catch (error) {
 					console.error(`[${new Date().toLocaleString()}] 批量缓存微博图片失败: ${error.message}`);
@@ -159,7 +159,7 @@ const extractUrlsFromJson = async (url, response, downloader, useProxy) => { // 
 						Cookie: getApp().get('pixivCookie') || ''
 					};
 					const illustId = url.split('/').pop();
-					const mapping = await batchCacheResources(urls, 'pixiv', headers, 5, illustId);
+					const mapping = await batchCacheResources(urls, getPrefix(downloader), headers, 5, illustId);
 					return urls.map(u => mapping.get(u) || u);
 				} catch (error) {
 					console.error(`[${new Date().toLocaleString()}] 批量缓存 Pixiv 图片失败: ${error.message}`);
@@ -219,9 +219,9 @@ const extractUrlsFromJson = async (url, response, downloader, useProxy) => { // 
 				// 如果开启了代理, 则将图片缓存到 S3 并返回 S3 URLs
 				if (shouldUseProxy(useProxy)) {
 					try {
-						const suffix = url.split('/').pop().split('?')[0];
-						const prefix = getPrefix(downloader);
-						const mapping = await batchCacheResources(urls, prefix, {}, 5, suffix);
+						const match = url.match(/status\/(\d+)/);
+						const tweetId = match ? match[1] : null;
+						const mapping = await batchCacheResources(urls, getPrefix(downloader), {}, 5, tweetId);
 						return urls.map(u => mapping.get(u) || u);
 					} catch (error) {
 						console.error(`[${new Date().toLocaleString()}] 批量缓存 Twitter 资源失败: ${error.message}`);

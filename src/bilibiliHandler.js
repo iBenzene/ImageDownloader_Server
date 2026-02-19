@@ -29,7 +29,7 @@ const extractBilibiliUrls = async (html, url) => {
         }
 
         // 选择最佳流
-        const { videoUrl, audioUrl } = getBestStreams(playinfo);
+        const { videoUrl, audioUrl, videoQualityId, audioQualityId } = getBestStreams(playinfo);
         if (!videoUrl || !audioUrl) {
             console.error(`[${new Date().toLocaleString()}] 未能提取到有效的视频或音频流`);
             return [];
@@ -53,6 +53,15 @@ const extractBilibiliUrls = async (html, url) => {
                 console.log(`[${new Date().toLocaleString()}] 使用 URL 哈希值作为文件名: ${filename}`);
             }
         }
+
+        // 加上质量标识
+        if (videoQualityId) {
+            filename += `_${videoQualityId}`;
+        }
+        if (audioQualityId) {
+            filename += `_${audioQualityId}`;
+        }
+
         const tempDir = path.join(__dirname, '../tmp');
         if (!fs.existsSync(tempDir)) {
             fs.mkdirSync(tempDir, { recursive: true });
@@ -112,15 +121,33 @@ const extractBvIdFromUrl = url => {
  */
 const getBestStreams = playinfo => {
     const dash = playinfo.data?.dash;
-    if (!dash) { return { videoUrl: null, audioUrl: null }; }
+    if (!dash) { return { videoUrl: null, audioUrl: null, videoQualityId: null, audioQualityId: null }; }
 
-    // 视频: 找 id 最大的, 代表清晰度最高, 通常 B 站 DASH 的第一个是最高画质
-    const videoUrl = dash.video && dash.video.length > 0 ? dash.video[0].baseUrl : null;
+    // 视频: 找 ID 最大的, 代表清晰度最高
+    let videoUrl = null;
+    let videoQualityId = null;
 
-    // 音频: 取 audio 数组第一个
-    const audioUrl = dash.audio && dash.audio.length > 0 ? dash.audio[0].baseUrl : null;
+    if (dash.video && dash.video.length > 0) {
+        // 按 ID 降序排序
+        dash.video.sort((a, b) => b.id - a.id);
+        const bestVideo = dash.video[0];
+        videoUrl = bestVideo.baseUrl;
+        videoQualityId = bestVideo.id;
+        console.log(`[${new Date().toLocaleString()}] [bilibili 视频下载器] Selected Best Video: ID=${bestVideo.id}, Bandwidth=${bestVideo.bandwidth}, Codec=${bestVideo.codecs}`);
+    }
 
-    return { videoUrl, audioUrl };
+    // 音频: 找 ID 最大的, 代表码率最高
+    let audioUrl = null;
+    let audioQualityId = null;
+    if (dash.audio && dash.audio.length > 0) {
+        dash.audio.sort((a, b) => b.id - a.id);
+        const bestAudio = dash.audio[0];
+        audioUrl = bestAudio.baseUrl;
+        audioQualityId = bestAudio.id;
+        console.log(`[${new Date().toLocaleString()}] [bilibili 视频下载器] Selected Best Audio: ID=${bestAudio.id}, Bandwidth=${bestAudio.bandwidth}, Codec=${bestAudio.codecs}`);
+    }
+
+    return { videoUrl, audioUrl, videoQualityId, audioQualityId };
 };
 
 /**

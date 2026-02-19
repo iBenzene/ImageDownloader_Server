@@ -32,7 +32,7 @@ const extractXhsLivePhotoUrls = async (response, useProxy) => { // 小红书实�
                 // 检查是否为实况图片
                 if (item.livePhoto && item.stream) {
                     // 查找第一个可用的视频编码格式
-                    const videoUrl = ensureHttps(getFirstAvailableVideoUrl(item.stream));
+                    const videoUrl = ensureHttps(getStreamUrl(item.stream));
 
                     if (videoUrl) {
                         // 实况图片: 同时返回封面和视频
@@ -90,8 +90,8 @@ const extractXhsLivePhotoUrls = async (response, useProxy) => { // 小红书实�
     }
 };
 
-/** 从 stream 对象中获取第一个可用视频的 URL */
-const getFirstAvailableVideoUrl = stream => {
+/** 从 stream 对象中获取视频 URL */
+const getStreamUrl = stream => {
     // 按优先级检查不同的视频编码格式
     const codecPriority = ['av1', 'h266', 'h265', 'h264'];
 

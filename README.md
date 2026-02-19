@@ -45,9 +45,10 @@ services:
 | ------- | ------- | ------- |
 | PORT | 监听的端口号 | 3080 |
 | TOKEN | 服务端令牌，用于鉴权，需要自己设置 | default_token |
-| PIXIV_COOKIE | 如需使用 Pixiv 图片下载器，请自行通过浏览器抓包获取 Pixiv Cookie | - |
 | XHS_COOKIE | 极少数笔记需要 Cookie（含游客 Cookie）才能访问，请自行通过浏览器抓包获取「小红书」Cookie（必须包含 `web_session`） | - |
 | BILIBILI_COOKIE | 如需下载大会员专属清晰度的视频，请自行通过浏览器抓包获取哔哩哔哩 Cookie | - |
+| PIXIV_COOKIE | 如需使用 Pixiv 图片下载器，请自行通过浏览器抓包获取 Pixiv Cookie | - |
+| TWITTER_COOKIE | 如需使用 Twitter (X) 下载器，请自行通过浏览器抓包获取 Twitter (X) Cookie | - |
 | S3_ENDPOINT | 符合 S3 规范的对象存储服务器，包括 Amazon S3、Cloudflare R2、MinIO 等，例如 `https://<accountid>.r2.cloudflarestorage.com` | - |
 | S3_BUCKET | S3 存储桶的名称 | - |
 | S3_ACCESS_KEY_ID | S3 服务的访问凭证 | - |
