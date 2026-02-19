@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
 
-const { uploadResourceToS3 } = require('./downloadProxy');
+const { uploadResourceToS3, getResourceFromS3 } = require('./downloadProxy');
 const { extractJsonFromHtml, downloadStream } = require('../utils/common');
 
 // 配置 ffmpeg 路径
@@ -38,17 +38,17 @@ const extractBilibiliUrls = async (html, url) => {
         const initialState = extractJsonFromHtml(html, 'window.__INITIAL_STATE__');
         if (initialState && initialState.bvid) {
             filename = initialState.bvid;
-            console.log(`[${new Date().toLocaleString()}] 使用 window.__INITIAL_STATE__.bvid 作为文件名: ${filename}`);
+            console.debug(`[${new Date().toLocaleString()}] 使用 window.__INITIAL_STATE__.bvid 作为文件名: ${filename}`);
         } else {
             // 尝试从 URL 中提取 ID
             filename = extractBvIdFromUrl(url);
             if (filename) {
-                console.log(`[${new Date().toLocaleString()}] 使用 URL 中的 ID 作为文件名: ${filename}`);
+                console.debug(`[${new Date().toLocaleString()}] 使用 URL 中的 ID 作为文件名: ${filename}`);
             } else {
                 // 如果都失败了, 使用去除所有查询参数后的 URL 哈希值作为文件名
                 const cleanUrl = url.split('?')[0];
                 filename = crypto.createHash('md5').update(cleanUrl).digest('hex');
-                console.log(`[${new Date().toLocaleString()}] 使用 URL 哈希值作为文件名: ${filename}`);
+                console.debug(`[${new Date().toLocaleString()}] 使用 URL 哈希值作为文件名: ${filename}`);
             }
         }
 
@@ -58,6 +58,13 @@ const extractBilibiliUrls = async (html, url) => {
         }
         if (audioQualityId) {
             filename += `_${audioQualityId}`;
+        }
+
+        // 优先检查 S3 是否已有合成后的视频, 命中则直接返回
+        const cachedS3Url = await getResourceFromS3(`${filename}.mp4`, 'bilibili', null, true);
+        if (cachedS3Url) {
+            console.debug(`[${new Date().toLocaleString()}] bilibili 视频命中 S3 缓存: ${cachedS3Url}`);
+            return [cachedS3Url];
         }
 
         // 创建临时目录
@@ -73,7 +80,7 @@ const extractBilibiliUrls = async (html, url) => {
         const outputPath = path.join(tempDir, `${filename}.mp4`);
 
         // 下载流
-        console.log(`[${new Date().toLocaleString()}] 开始下载 bilibili 流...`);
+        console.debug(`[${new Date().toLocaleString()}] 开始下载 bilibili 视频流...`);
         const headers = {
             'Referer': 'https://www.bilibili.com/'
         };
@@ -83,18 +90,18 @@ const extractBilibiliUrls = async (html, url) => {
         ]);
 
         // 合并音视频
-        console.log(`[${new Date().toLocaleString()}] 开始合并视频...`);
+        console.log(`[${new Date().toLocaleString()}] 开始合成 bilibili 视频...`);
         await mergeStreams(videoPath, audioPath, outputPath);
 
         // 上传到 S3
-        console.log(`[${new Date().toLocaleString()}] 开始上传 bilibili 视频 to S3...`);
+        console.debug(`[${new Date().toLocaleString()}] 开始上传 bilibili 视频到 S3...`);
         const s3Url = await uploadResourceToS3(outputPath, 'video/mp4', 'bilibili', null, true);
 
         // 清理临时文件
         fs.rmSync(tempDir, { recursive: true, force: true });
         tempDir = null;
 
-        console.log(`[${new Date().toLocaleString()}] bilibili 视频处理完成: ${s3Url}`);
+        console.debug(`[${new Date().toLocaleString()}] bilibili 视频处理完成: ${s3Url}`);
         return [s3Url];
 
     } catch (error) {
@@ -146,7 +153,7 @@ const getBestStreams = playinfo => {
         const bestVideo = dash.video[0];
         videoUrl = bestVideo.baseUrl;
         videoQualityId = bestVideo.id;
-        console.log(`[${new Date().toLocaleString()}] [bilibili 视频下载器] Selected Best Video: ID=${bestVideo.id}, Bandwidth=${bestVideo.bandwidth}, Codec=${bestVideo.codecs}`);
+        console.debug(`[${new Date().toLocaleString()}] 选择 bilibili 视频: ID=${bestVideo.id}, Bandwidth=${bestVideo.bandwidth}, Codec=${bestVideo.codecs}`);
     }
 
     // 音频: 找 ID 最大的, 代表码率最高
@@ -157,7 +164,7 @@ const getBestStreams = playinfo => {
         const bestAudio = dash.audio[0];
         audioUrl = bestAudio.baseUrl;
         audioQualityId = bestAudio.id;
-        console.log(`[${new Date().toLocaleString()}] [bilibili 视频下载器] Selected Best Audio: ID=${bestAudio.id}, Bandwidth=${bestAudio.bandwidth}, Codec=${bestAudio.codecs}`);
+        console.debug(`[${new Date().toLocaleString()}] 选择 bilibili 音频: ID=${bestAudio.id}, Bandwidth=${bestAudio.bandwidth}, Codec=${bestAudio.codecs}`);
     }
 
     return { videoUrl, audioUrl, videoQualityId, audioQualityId };
@@ -175,7 +182,7 @@ const mergeStreams = (videoPath, audioPath, outputPath) => {
             .outputOptions('-c:a copy') // 音频流直接复制
             .save(outputPath)
             .on('end', () => resolve())
-            .on('error', err => reject(err));
+            .on('error', error => reject(err));
     });
 };
 

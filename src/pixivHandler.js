@@ -7,7 +7,7 @@ const AdmZip = require('adm-zip');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
 
-const { uploadResourceToS3 } = require('./downloadProxy');
+const { uploadResourceToS3, getResourceFromS3 } = require('./downloadProxy');
 const { getApp, downloadStream } = require('../utils/common');
 
 // 配置 ffmpeg 路径
@@ -28,7 +28,14 @@ const extractPixivUgoiraUrls = async (data, illustId) => {
             return [];
         }
 
-        console.log(`[${new Date().toLocaleString()}] 检测到 Pixiv 动图, ZIP URL: ${zipUrl}, 帧数: ${frames.length}`);
+        // 优先检查 S3 是否已有合成后的动图, 命中则直接返回
+        const cachedS3Url = await getResourceFromS3(`${illustId}.mp4`, 'pixiv', illustId);
+        if (cachedS3Url) {
+            console.debug(`[${new Date().toLocaleString()}] Pixiv 动图命中 S3 缓存: ${cachedS3Url}`);
+            return [cachedS3Url];
+        }
+
+        console.debug(`[${new Date().toLocaleString()}] 检测到 Pixiv 动图, ZIP URL: ${zipUrl}, 帧数: ${frames.length}`);
 
         // 创建临时目录
         const baseDir = path.join(__dirname, '../tmp');
@@ -42,7 +49,7 @@ const extractPixivUgoiraUrls = async (data, illustId) => {
         const outputPath = path.join(tempDir, `${illustId}.mp4`);
 
         // 下载动图帧
-        console.log(`[${new Date().toLocaleString()}] 开始下载动图帧...`);
+        console.debug(`[${new Date().toLocaleString()}] 开始下载 Pixiv 动图帧...`);
         const headers = {
             'Referer': 'https://www.pixiv.net/',
             'Cookie': getApp().get('pixivCookie') || ''
@@ -50,7 +57,7 @@ const extractPixivUgoiraUrls = async (data, illustId) => {
         await downloadStream(zipUrl, zipPath, headers);
 
         // 解压动图帧
-        console.log(`[${new Date().toLocaleString()}] 解压动图帧...`);
+        console.debug(`[${new Date().toLocaleString()}] 解压 Pixiv 动图帧...`);
         const zip = new AdmZip(zipPath);
         zip.extractAllTo(tempDir, true);
 
@@ -69,12 +76,12 @@ const extractPixivUgoiraUrls = async (data, illustId) => {
 
         fs.writeFileSync(listPath, fileContent);
 
-        // 转换为视频
-        console.log(`[${new Date().toLocaleString()}] 开始转换为视频...`);
-        await convertToMp4(listPath, outputPath);
+        // 合成动图
+        console.debug(`[${new Date().toLocaleString()}] 开始合成 Pixiv 动图帧...`);
+        await mergeUgoira(listPath, outputPath);
 
         // 上传到 S3
-        console.log(`[${new Date().toLocaleString()}] 开始上传视频到 S3...`);
+        console.debug(`[${new Date().toLocaleString()}] 开始上传 Pixiv 动图到 S3...`);
         const s3Url = await uploadResourceToS3(outputPath, 'video/mp4', 'pixiv', illustId);
 
         // 清理临时文件
@@ -99,7 +106,7 @@ const extractPixivUgoiraUrls = async (data, illustId) => {
     }
 };
 
-const convertToMp4 = (listPath, outputPath) => {
+const mergeUgoira = (listPath, outputPath) => {
     return new Promise((resolve, reject) => {
         ffmpeg()
             .input(listPath)
@@ -107,7 +114,7 @@ const convertToMp4 = (listPath, outputPath) => {
             .outputOptions(['-c:v libx264', '-pix_fmt yuv420p', '-vf scale=trunc(iw/2)*2:trunc(ih/2)*2']) // 确保宽高是2的倍数
             .save(outputPath)
             .on('end', () => resolve())
-            .on('error', err => reject(err));
+            .on('error', error => reject(err));
     });
 };
 

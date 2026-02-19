@@ -10,7 +10,8 @@ try {
 
 const parsingResponse = require('../src/parsingResponse');
 const fetchUrl = require('../src/fetchUrl');
-const { setApp } = require('../utils/common');
+const { setApp, shouldUseProxy } = require('../utils/common');
+const { readExtractCache, writeExtractCache } = require('../src/extractCache');
 
 /**
  * Mocking Express App for parsingResponse's and fetchUrl's dependency on common.getApp()
@@ -61,6 +62,17 @@ async function testExtractByUrl(url, downloader, useProxy) {
     console.log(`[Test] useProxy: ${useProxy}`);
 
     try {
+        const proxyEnabled = shouldUseProxy(useProxy);
+
+        // 如果开启了代理, 优先读取 extract 请求缓存, 命中则直接返回 S3 中的数据
+        if (proxyEnabled) {
+            const cachedMediaUrls = await readExtractCache(url, downloader);
+            if (cachedMediaUrls && cachedMediaUrls.length > 0) {
+                console.log(`[Test] [${new Date().toLocaleString()}] extract cache hit: ${downloader}, url: ${url}, return: ${JSON.stringify(cachedMediaUrls, null, 2)}`);
+                return cachedMediaUrls;
+            }
+        }
+
         // 发起网络请求
         console.log('[Test] Fetching URL...');
         const response = await fetchUrl(url, downloader);
@@ -94,6 +106,10 @@ async function testExtractByUrl(url, downloader, useProxy) {
             }
         }
 
+        if (proxyEnabled && mediaUrls.length > 0) {
+            await writeExtractCache(url, downloader, mediaUrls);
+        }
+
         console.log('[Test] Extracted mediaUrls:', JSON.stringify(mediaUrls, null, 2));
         return mediaUrls;
     } catch (error) {
@@ -117,7 +133,7 @@ if (require.main === module) {
     const [downloader, url, useProxyInput] = args;
     const useProxy = useProxyInput || 'false';
 
-    testExtractByUrl(url, downloader, useProxy).catch(err => {
+    testExtractByUrl(url, downloader, useProxy).catch(error => {
         process.exit(1);
     });
 }

@@ -164,7 +164,7 @@ const extractUrlsFromJson = async (url, response, downloader, useProxy) => { // 
 					const mapping = await batchCacheResources(urls, getPrefix(downloader), headers, 5, illustId);
 					return urls.map(u => mapping.get(u) || u);
 				} catch (error) {
-					console.error(`[${new Date().toLocaleString()}] 批量缓存 Pixiv 图片失败: ${error.message}`);
+					console.error(`[${new Date().toLocaleString()}] 批量缓存 Pixiv 插画失败: ${error.message}`);
 					return urls;
 				}
 			}

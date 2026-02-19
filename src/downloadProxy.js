@@ -123,6 +123,42 @@ const uploadResourceToS3 = async (url, contentType, prefix, sourceId = null, use
 };
 
 /**
+ * 从 S3 获取已存在的单个资源的 URL, 如果不存在则返回 null
+ */
+const getResourceFromS3 = async (url, prefix, sourceId = null, useOriginalFilename = false) => {
+    const app = getApp();
+
+    const s3Endpoint = app.get('s3Endpoint');
+    const s3Bucket = app.get('s3Bucket');
+    const s3AccessKeyId = app.get('s3AccessKeyId');
+    const s3SecretAccessKey = app.get('s3SecretAccessKey');
+    const s3PublicBase = app.get('s3PublicBase');
+
+    if (!s3Endpoint || !s3Bucket) {
+        return null;
+    }
+
+    const s3 = createS3Client({
+        endpoint: s3Endpoint,
+        accessKeyId: s3AccessKeyId,
+        secretAccessKey: s3SecretAccessKey
+    });
+
+    const key = generateKey(url, prefix, sourceId, useOriginalFilename);
+
+    try {
+        const exists = await objectExists(s3, s3Bucket, key);
+        if (exists) {
+            return buildPublicUrl({ publicBase: s3PublicBase, endpoint: s3Endpoint, bucket: s3Bucket, key });
+        }
+    } catch (error) {
+        throw new Error(`S3 操作失败: ${error.message}`, { cause: error });
+    }
+
+    return null;
+};
+
+/**
  * 下载单个资源
  */
 const downloadResource = async (url, headers) => {
@@ -142,7 +178,7 @@ const downloadResource = async (url, headers) => {
     return { buffer: Buffer.from(response.data), contentType: contentType || 'application/octet-stream' };
 };
 
-module.exports = { batchCacheResources, uploadResourceToS3 };
+module.exports = { batchCacheResources, cacheResourceToS3, uploadResourceToS3, getResourceFromS3 };
 
 /**
  * 根据 URL 生成缓存 Key

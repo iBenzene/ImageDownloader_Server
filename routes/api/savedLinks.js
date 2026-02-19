@@ -124,12 +124,10 @@ router.post('/sync', async (req, res) => {
                     });
                 }
 
-                res.json({
+                return res.json({
                     records: recordsToReturn,
                     syncedAt: new Date().toISOString()
                 });
-
-                return; // Success, exit
 
             } catch (error) {
                 // 412 Precondition Failed
@@ -150,7 +148,7 @@ router.post('/sync', async (req, res) => {
         }
     } catch (error) {
         console.error(`[${new Date().toLocaleString()}] 同步已收藏链接失败:`, error);
-        res.status(500).json({ error: `同步已收藏链接失败: ${error.message || 'UnknownError'}` });
+        return res.status(500).json({ error: `同步已收藏链接失败: ${error.message || 'UnknownError'}` });
     }
 });
 

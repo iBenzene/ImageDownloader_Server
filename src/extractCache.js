@@ -99,7 +99,7 @@ const getS3Config = () => {
 const getCacheKey = (url, downloader) => {
     const normalizedUrl = normalizeUrl(url);
     const digest = crypto
-        .createHash('sha256')
+        .createHash('md5')
         .update(`${downloader}|${normalizedUrl}`)
         .digest('hex');
     return `${CACHE_PREFIX}/${digest}.json`;

@@ -5,7 +5,7 @@ const router = express.Router();
 
 // 健康检查接口
 router.get('/', (req, res) => {
-    res.send('OK');
+    return res.send('OK');
 });
 
 module.exports = router;

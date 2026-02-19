@@ -26,7 +26,7 @@ router.get('/', async (req, res) => {
         if (proxyEnabled) {
             const cachedMediaUrls = await readExtractCache(url, downloader);
             if (cachedMediaUrls && cachedMediaUrls.length > 0) {
-                console.log(`[${new Date().toLocaleString()}] extract cache hit: ${downloader}, url: ${url}`);
+                console.log(`[${new Date().toLocaleString()}] extract cache hit: ${downloader}, url: ${url}, return: ${JSON.stringify(cachedMediaUrls, null, 2)}`);
                 return res.json({ mediaUrls: cachedMediaUrls });
             }
         }
@@ -69,12 +69,12 @@ router.get('/', async (req, res) => {
             await writeExtractCache(url, downloader, mediaUrls);
         }
 
-        console.log(`[${new Date().toLocaleString()}] mediaUrls: ${mediaUrls}`);
-        res.json({ mediaUrls });
+        console.log(`[${new Date().toLocaleString()}] mediaUrls: ${JSON.stringify(mediaUrls, null, 2)}`);
+        return res.json({ mediaUrls });
     } catch (error) {
         console.error(`[${new Date().toLocaleString()}] 提取资源的 URLs 失败: ${error.message}`);
         try {
-            res.status(500).json({ error: `提取资源的 URLs 失败: ${error.message}` });
+            return res.status(500).json({ error: `提取资源的 URLs 失败: ${error.message}` });
         } catch (error) {
             console.error(`[${new Date().toLocaleString()}] 响应客户端失败: ${error.message}`);
         }

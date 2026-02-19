@@ -37,8 +37,34 @@ const objectExists = async (s3, bucket, key) => {
     try {
         await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
         return true;
-    } catch (_error) {
-        // NotFound / 404 -> 不存在
+    } catch (error) {
+        // 如果是 404 Not Found, 说明确实不存在
+        if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+            return false;
+        }
+
+        // 如果是 403 Forbidden, 可能是权限限制了 HeadObject
+        if (error.$metadata?.httpStatusCode === 403) {
+            try {
+                // 尝试 GetObject, 这样可以全量获取对象内容, 从而判断对象是否存在, 但比较耗流量
+                await s3.send(new GetObjectCommand({
+                    Bucket: bucket,
+                    Key: key
+                }));
+                console.log(`[${new Date().toLocaleString()}] S3 ObjectExists (Fallback GetObject) success:`, bucket, key);
+                return true;
+            } catch (getError) {
+                if (getError.name === 'NoSuchKey' || getError.$metadata?.httpStatusCode === 404) {
+                    return false;
+                }
+                // 如果 GetObject 也报 403 或其他, 则记录并视为不存在/错误
+                console.error(`[${new Date().toLocaleString()}] S3 ObjectExists (Fallback GetObject) error:`, getError.name, getError.$metadata?.httpStatusCode, getError.message);
+                return false;
+            }
+        }
+
+        // 其他错误 (网络等)
+        console.error(`[${new Date().toLocaleString()}] S3 ObjectExists (HeadObject) error:`, error.name, error.$metadata?.httpStatusCode, error.message);
         return false;
     }
 };
