@@ -74,7 +74,7 @@ const extractBilibiliUrls = async (html, url) => {
 
         // 上传到 S3
         console.log(`[${new Date().toLocaleString()}] 开始上传 bilibili 视频 to S3...`);
-        const s3Url = await uploadResourceToS3(outputPath, 'video/mp4', 'bilibili');
+        const s3Url = await uploadResourceToS3(outputPath, 'video/mp4', 'bilibili', null, true);
 
         // 清理本地文件
         fs.unlinkSync(videoPath);

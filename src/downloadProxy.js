@@ -82,7 +82,7 @@ const cacheResourceToS3 = async (url, prefix, headers = {}, sourceId = null) => 
 /**
  * 将单个资源上传到 S3, 并返回 S3 URL
  */
-const uploadResourceToS3 = async (url, contentType, prefix, sourceId = null) => {
+const uploadResourceToS3 = async (url, contentType, prefix, sourceId = null, useOriginalFilename = false) => {
     const fs = require('fs');
     if (!fs.existsSync(url)) {
         throw new Error(`Local file not found: ${url}`);
@@ -106,7 +106,7 @@ const uploadResourceToS3 = async (url, contentType, prefix, sourceId = null) => 
     });
 
     // 生成 key
-    const key = generateKey(url, prefix, sourceId);
+    const key = generateKey(url, prefix, sourceId, useOriginalFilename);
 
     try {
         const exists = await objectExists(s3, s3Bucket, key);
@@ -148,7 +148,7 @@ module.exports = { batchCacheResources, uploadResourceToS3 };
  * 根据 URL 生成缓存 Key
  * 格式: cache/<prefix>/[sourceId/]<filename>.<ext>
  */
-const generateKey = (url, prefix, sourceId = null) => {
+const generateKey = (url, prefix, sourceId = null, useOriginalFilename = false) => {
     // 去掉 URL 的查询参数
     const cleanUrl = url.split('?')[0];
 
@@ -161,8 +161,12 @@ const generateKey = (url, prefix, sourceId = null) => {
         // 如果有 sourceId, 使用 URL 的最后一部分作为文件名
         const basename = path.basename(cleanUrl);
         filename = basename.includes('.') ? basename.substring(0, basename.lastIndexOf('.')) : basename;
+    } else if (useOriginalFilename) {
+        // 保留原始文件名
+        const basename = path.basename(cleanUrl);
+        filename = basename.includes('.') ? basename.substring(0, basename.lastIndexOf('.')) : basename;
     } else {
-        // 如果没有 sourceId, 则对 URL 进行 MD5 哈希
+        // 如果没有 sourceId 且不保留原始文件名, 则对 URL 进行 MD5 哈希
         filename = crypto.createHash('md5').update(cleanUrl).digest('hex');
     }
 
