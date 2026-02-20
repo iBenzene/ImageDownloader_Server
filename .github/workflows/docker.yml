@@ -126,7 +126,7 @@ jobs:
 
             # Remove the old container and unused images
             sudo docker compose down
-            sudo docker image prune -f
+            sudo docker image prune -a -f
 
             # Update the image tag in docker-compose.yml
             sed -i "s|image: ghcr.io/${{ env.IMAGE_NAME }}:.*|image: ghcr.io/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.version }}|g" docker-compose.yml
