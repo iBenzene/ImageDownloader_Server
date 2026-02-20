@@ -20,10 +20,10 @@ router.get('/', async (req, res) => {
     }
 
     try {
-        const proxyEnabled = shouldUseProxy(useProxy);
+        const enableCacheReuse = req.app.get('enableCacheReuse') && shouldUseProxy(useProxy);
 
-        // 如果开启了代理, 优先读取 extract 请求缓存, 命中则直接返回 S3 中的数据
-        if (proxyEnabled) {
+        // 如果允许缓存, 优先读取 extract 请求缓存, 命中则直接返回 S3 中的数据
+        if (enableCacheReuse) {
             const cachedMediaUrls = await readExtractCache(url, downloader);
             if (cachedMediaUrls && cachedMediaUrls.length > 0) {
                 console.log(`[${new Date().toLocaleString()}] extract cache hit: ${downloader}, url: ${url}, return: ${JSON.stringify(cachedMediaUrls, null, 2)}`);
@@ -65,7 +65,7 @@ router.get('/', async (req, res) => {
             }
         }
 
-        if (proxyEnabled && mediaUrls.length > 0) {
+        if (enableCacheReuse && mediaUrls.length > 0) {
             await writeExtractCache(url, downloader, mediaUrls);
         }
 

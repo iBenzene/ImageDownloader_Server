@@ -114,7 +114,7 @@ const mergeUgoira = (listPath, outputPath) => {
             .outputOptions(['-c:v libx264', '-pix_fmt yuv420p', '-vf scale=trunc(iw/2)*2:trunc(ih/2)*2']) // 确保宽高是2的倍数
             .save(outputPath)
             .on('end', () => resolve())
-            .on('error', error => reject(err));
+            .on('error', error => reject(error));
     });
 };
 

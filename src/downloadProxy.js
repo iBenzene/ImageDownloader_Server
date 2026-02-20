@@ -63,9 +63,10 @@ const cacheResourceToS3 = async (url, prefix, headers = {}, sourceId = null) => 
     });
 
     const key = generateKey(url, prefix, sourceId);
+    const enableCacheReuse = app.get('enableCacheReuse');
 
     try {
-        const exists = await objectExists(s3, s3Bucket, key);
+        const exists = enableCacheReuse ? await objectExists(s3, s3Bucket, key) : false;
         if (!exists) {
             const { buffer, contentType } = await downloadResource(url, headers);
             console.debug(`[${new Date().toLocaleString()}] 上传资源到 S3: ${key}, size: ${buffer.length}`);
@@ -107,9 +108,10 @@ const uploadResourceToS3 = async (url, contentType, prefix, sourceId = null, use
 
     // 生成 key
     const key = generateKey(url, prefix, sourceId, useOriginalFilename);
+    const enableCacheReuse = app.get('enableCacheReuse');
 
     try {
-        const exists = await objectExists(s3, s3Bucket, key);
+        const exists = enableCacheReuse ? await objectExists(s3, s3Bucket, key) : false;
         if (!exists) {
             const buffer = fs.readFileSync(url);
             console.debug(`[${new Date().toLocaleString()}] 上传资源到 S3: ${key}, size: ${buffer.length}`);
@@ -145,9 +147,10 @@ const getResourceFromS3 = async (url, prefix, sourceId = null, useOriginalFilena
     });
 
     const key = generateKey(url, prefix, sourceId, useOriginalFilename);
+    const enableCacheReuse = app.get('enableCacheReuse');
 
     try {
-        const exists = await objectExists(s3, s3Bucket, key);
+        const exists = enableCacheReuse ? await objectExists(s3, s3Bucket, key) : false;
         if (exists) {
             return buildPublicUrl({ publicBase: s3PublicBase, endpoint: s3Endpoint, bucket: s3Bucket, key });
         }

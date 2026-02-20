@@ -39,6 +39,8 @@ const mockApp = {
                 return process.env.S3_SECRET_ACCESS_KEY || '';
             case 's3PublicBase':
                 return process.env.S3_PUBLIC_BASE || '';
+            case 'enableCacheReuse':
+                return process.env.ENABLE_CACHE_REUSE === 'true';
             case 'extractCacheTtl':
                 return process.env.EXTRACT_CACHE_TTL_SECONDS || '';
             default:
@@ -62,10 +64,10 @@ async function testExtractByUrl(url, downloader, useProxy) {
     console.log(`[Test] useProxy: ${useProxy}`);
 
     try {
-        const proxyEnabled = shouldUseProxy(useProxy);
+        const enableCacheReuse = mockApp.get('enableCacheReuse') && shouldUseProxy(useProxy);
 
-        // 如果开启了代理, 优先读取 extract 请求缓存, 命中则直接返回 S3 中的数据
-        if (proxyEnabled) {
+        // 如果开启了缓存, 优先读取 extract 请求缓存, 命中则直接返回 S3 中的数据
+        if (enableCacheReuse) {
             const cachedMediaUrls = await readExtractCache(url, downloader);
             if (cachedMediaUrls && cachedMediaUrls.length > 0) {
                 console.log(`[Test] [${new Date().toLocaleString()}] extract cache hit: ${downloader}, url: ${url}, return: ${JSON.stringify(cachedMediaUrls, null, 2)}`);
@@ -106,7 +108,7 @@ async function testExtractByUrl(url, downloader, useProxy) {
             }
         }
 
-        if (proxyEnabled && mediaUrls.length > 0) {
+        if (enableCacheReuse && mediaUrls.length > 0) {
             await writeExtractCache(url, downloader, mediaUrls);
         }
 

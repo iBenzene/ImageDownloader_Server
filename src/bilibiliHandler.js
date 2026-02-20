@@ -182,7 +182,7 @@ const mergeStreams = (videoPath, audioPath, outputPath) => {
             .outputOptions('-c:a copy') // 音频流直接复制
             .save(outputPath)
             .on('end', () => resolve())
-            .on('error', error => reject(err));
+            .on('error', error => reject(error));
     });
 };
 

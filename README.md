@@ -54,6 +54,8 @@ services:
 | S3_ACCESS_KEY_ID | S3 服务的访问凭证 | - |
 | S3_SECRET_ACCESS_KEY | S3 服务的访问密钥 | - |
 | S3_PUBLIC_BASE | 可选，S3 存储桶的访问路径，允许使用 CDN 或自定义域名，支持 virtual-hosted-style 的访问方式，例如 `https://<accountid>.r2.cloudflarestorage.com/{bucket}` 或 `https://cdn.example.com` | - |
+| ENABLE_CACHE_REUSE | 是否复用已有缓存，仅在 `useProxy=true` 的代理路径下生效，`true` 表示启用 extract 请求缓存并复用已存在的 S3 对象，`false` 表示忽略已有的 S3 缓存并重新下载资源 | false |
+| EXTRACT_CACHE_TTL_SECONDS | extract 请求的缓存时间（秒），例如 `86400` 表示 1 天 | 2592000 |
 
 ### 🔄 代理下载
 
