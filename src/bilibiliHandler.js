@@ -19,8 +19,33 @@ ffmpeg.setFfmpegPath(ffmpegPath);
 const extractBilibiliUrls = async (html, url) => {
     let tempDir = null;
     try {
-        // 提取 playinfo
-        const playinfo = extractJsonFromHtml(html, 'window.__playinfo__');
+        // 提取 playinfo 和 initialState
+        let playinfo = extractJsonFromHtml(html, 'window.__playinfo__');
+        const initialState = extractJsonFromHtml(html, 'window.__INITIAL_STATE__');
+
+        if (!playinfo && initialState) {
+            console.debug(`[${new Date().toLocaleString()}] 未在 HTML 中找到 window.__playinfo__, 尝试通过 API 获取...`);
+            const bvid = initialState.bvid;
+            const cid = initialState.videoData?.cid || initialState.epInfo?.cid;
+            if (bvid && cid) {
+                try {
+                    const axios = require('axios');
+                    const apiUrl = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&fnval=4048`;
+                    const res = await axios.get(apiUrl, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                        }
+                    });
+                    if (res.data && res.data.data && res.data.data.dash) {
+                        playinfo = { data: res.data.data };
+                        console.debug(`[${new Date().toLocaleString()}] 成功通过 API 获取 bilibili playinfo`);
+                    }
+                } catch (apiError) {
+                    console.error(`[${new Date().toLocaleString()}] 通过 API 获取 playinfo 失败: ${apiError.message}`);
+                }
+            }
+        }
+
         if (!playinfo) {
             console.error(`[${new Date().toLocaleString()}] 未找到 bilibili playinfo`);
             return [];
@@ -35,7 +60,6 @@ const extractBilibiliUrls = async (html, url) => {
 
         // 生成唯一文件名
         let filename;
-        const initialState = extractJsonFromHtml(html, 'window.__INITIAL_STATE__');
         if (initialState && initialState.bvid) {
             filename = initialState.bvid;
             console.debug(`[${new Date().toLocaleString()}] 使用 window.__INITIAL_STATE__.bvid 作为文件名: ${filename}`);
