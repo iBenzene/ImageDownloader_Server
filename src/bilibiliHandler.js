@@ -3,12 +3,13 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const axios = require('axios');
 
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
 
 const { uploadResourceToS3, getResourceFromS3 } = require('./downloadProxy');
-const { extractJsonFromHtml, downloadStream } = require('../utils/common');
+const { extractJsonFromHtml, downloadStream, getApp, commonHeaders } = require('../utils/common');
 
 // 配置 ffmpeg 路径
 ffmpeg.setFfmpegPath(ffmpegPath);
@@ -29,15 +30,15 @@ const extractBilibiliUrls = async (html, url) => {
             const cid = initialState.videoData?.cid || initialState.epInfo?.cid;
             if (bvid && cid) {
                 try {
-                    const axios = require('axios');
                     const apiUrl = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&fnval=4048`;
-                    const res = await axios.get(apiUrl, {
-                        headers: {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                        }
-                    });
-                    if (res.data && res.data.data && res.data.data.dash) {
-                        playinfo = { data: res.data.data };
+                    const headers = { ...commonHeaders };
+                    const cookie = getApp().get('bilibiliCookie');
+                    if (cookie) {
+                        headers['Cookie'] = cookie;
+                    }
+                    const response = await axios.get(apiUrl, { headers });
+                    if (response.data && response.data.data && response.data.data.dash) {
+                        playinfo = { data: response.data.data };
                         console.debug(`[${new Date().toLocaleString()}] 成功通过 API 获取 bilibili playinfo`);
                     }
                 } catch (apiError) {
@@ -99,8 +100,8 @@ const extractBilibiliUrls = async (html, url) => {
         tempDir = path.join(baseDir, `bilibili_${filename}_${Date.now()}`);
         fs.mkdirSync(tempDir, { recursive: true });
 
-        const videoPath = path.join(tempDir, `video.m4s`); // B站通常是 m4s
-        const audioPath = path.join(tempDir, `audio.m4s`);
+        const videoPath = path.join(tempDir, 'video.m4s'); // B站通常是 m4s
+        const audioPath = path.join(tempDir, 'audio.m4s');
         const outputPath = path.join(tempDir, `${filename}.mp4`);
 
         // 下载流
@@ -147,7 +148,7 @@ const extractBilibiliUrls = async (html, url) => {
  * 从 URL 中提取 BV 号
  */
 const extractBvIdFromUrl = url => {
-    if (!url) return null;
+    if (!url) { return null; }
     try {
         // 移除查询参数
         const cleanUrl = url.split('?')[0];
