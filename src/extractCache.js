@@ -47,6 +47,17 @@ const writeExtractCache = async (url, downloader, mediaUrls) => {
         const config = getS3Config();
         if (!config) { return false; }
 
+        // 校验: 所有 URL 必须已转换为 CDN URL, 避免缓存含有未代理原始 URL 的脏数据
+        if (config.publicBase) {
+            const base = config.publicBase.replace(/\/+$/, '');
+            const uncachedUrls = mediaUrls.filter(u => !u.startsWith(base));
+            if (uncachedUrls.length > 0) {
+                console.warn(`[${new Date().toLocaleString()}] 跳过写入 extract 缓存: ${uncachedUrls.length} 个 URL 未成功转换为 CDN URL`);
+                uncachedUrls.forEach(u => console.warn(`  - ${u}`));
+                return false;
+            }
+        }
+
         const s3 = createS3Client({
             endpoint: config.endpoint,
             accessKeyId: config.accessKeyId,
@@ -87,12 +98,13 @@ const getS3Config = () => {
     const bucket = app.get('s3Bucket');
     const accessKeyId = app.get('s3AccessKeyId');
     const secretAccessKey = app.get('s3SecretAccessKey');
+    const publicBase = app.get('s3PublicBase');
 
     if (!endpoint || !bucket || !accessKeyId || !secretAccessKey) {
         return null;
     }
 
-    return { endpoint, bucket, accessKeyId, secretAccessKey };
+    return { endpoint, bucket, accessKeyId, secretAccessKey, publicBase };
 };
 
 /** 生成缓存 Key */

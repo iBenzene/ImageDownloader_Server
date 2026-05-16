@@ -11,6 +11,7 @@ const { getApp } = require('../utils/common');
  * 将多个资源批量缓存到 S3, 并返回 S3 URLs
  */
 const batchCacheResources = async (urls, prefix, headers = {}, concurrency = 5, sourceId = null) => {
+    const MAX_RETRIES = 3;
     const results = [];
     // 数组去重
     const queue = Array.from(new Set(urls));
@@ -22,12 +23,24 @@ const batchCacheResources = async (urls, prefix, headers = {}, concurrency = 5, 
             if (i >= queue.length) { break; }
 
             const u = queue[i];
-            try {
-                const s3url = await cacheResourceToS3(u, prefix, headers, sourceId);
-                results.push([u, s3url]); // 成功返回映射
-            } catch (error) {
-                console.error(`[${new Date().toLocaleString()}] 缓存资源失败 (${prefix}): ${u}`, error.message);
-                results.push([u, u]); // 失败回退为原 URL
+            let success = false;
+            for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+                try {
+                    const s3url = await cacheResourceToS3(u, prefix, headers, sourceId);
+                    results.push([u, s3url]); // 成功返回映射
+                    success = true;
+                    break;
+                } catch (error) {
+                    if (attempt < MAX_RETRIES) {
+                        console.warn(`[${new Date().toLocaleString()}] 缓存资源重试 ${attempt}/${MAX_RETRIES} (${prefix}): ${u}, error: ${error.message}`);
+                        await new Promise(r => setTimeout(r, 1000 * attempt)); // 退避等待
+                    } else {
+                        console.error(`[${new Date().toLocaleString()}] 缓存资源失败 (${prefix}), 已达最大重试次数: ${u}`, error.message);
+                    }
+                }
+            }
+            if (!success) {
+                results.push([u, u]); // 重试耗尽, 回退为原 URL
             }
         }
     };
