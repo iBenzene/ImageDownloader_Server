@@ -2,7 +2,7 @@
 
 const { batchCacheResources } = require('./downloadProxy');
 const { getApp, shouldUseProxy, ensureHttps } = require('../utils/common');
-const { extractXhsLivePhotoUrls } = require('./xhsHandler');
+const { extractXhsImageUrls, extractXhsLivePhotoUrls, extractXhsVideoUrls } = require('./xhsHandler');
 const { extractBilibiliUrls } = require('./bilibiliHandler');
 const { extractPixivUgoiraUrls } = require('./pixivHandler');
 
@@ -45,10 +45,18 @@ const extractUrlsFromHtml = async (url, response, downloader, useProxy) => { // 
 		return [];
 	}
 
+	let urls = [];
+
 	// 对 HTML 文本进行特殊处理
 	switch (downloader) {
+		case '小红书图片下载器':
+			urls = extractXhsImageUrls(html);
+			break;
 		case '小红书实况图片下载器':
 			return await extractXhsLivePhotoUrls(response, useProxy);
+		case '小红书视频下载器':
+			urls = extractXhsVideoUrls(html);
+			break;
 		case '哔哩哔哩视频下载器': {
 			return await extractBilibiliUrls(html, url);
 		}
@@ -60,21 +68,24 @@ const extractUrlsFromHtml = async (url, response, downloader, useProxy) => { // 
 	let regex;
 	switch (downloader) {
 		case '小红书图片下载器':
+			if (urls.length > 0) { break; }
 			regex = /<meta\s+name="og:image"\s+content="([^"]+)"/g;
 			break;
 		case '小红书视频下载器':
+			if (urls.length > 0) { break; }
 			regex = /<meta\s+name="og:video"\s+content="([^"]+)"/g;
 			break;
 		default:
 			return [];
 	}
 
-	const urls = [];
 	let match;
-	while ((match = regex.exec(html)) !== null) {
-		const u = ensureHttps(match[1].replace(/\\u002F/g, '/'));
-		if (u) {
-			urls.push(u);
+	if (regex) {
+		while ((match = regex.exec(html)) !== null) {
+			const u = ensureHttps(match[1].replace(/\\u002F/g, '/'));
+			if (u) {
+				urls.push(u);
+			}
 		}
 	}
 
