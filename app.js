@@ -13,9 +13,9 @@ const express = require('express');
 const app = express();
 const port = process.env.PORT || 3080;
 
-// 使用 body-parser 来解析 POST 请求体
+// 使用 body-parser 来解析 POST 请求体, 支持较大的同步数据
 const bodyParser = require('body-parser');
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '20mb' }));
 
 // 引入路由模块
 const healthzRouter = require('./routes/healthz');
