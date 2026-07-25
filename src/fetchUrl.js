@@ -21,7 +21,10 @@ const fetchUrl = async (url, downloader, cookie = '') => {
                 downloader === '小红书视频下载器' ||
                 downloader === '小红书实况图片下载器'
             ) &&
-            targetUrl.includes('xhslink.com')
+            (
+                targetUrl.includes('xhslink.com') ||
+                targetUrl.includes('xhslink.cn')
+            )
         ) ||
         (
             downloader === '哔哩哔哩视频下载器' &&

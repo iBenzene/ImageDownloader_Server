@@ -121,6 +121,11 @@ const getCacheKey = (url, downloader) => {
 const normalizeUrl = rawUrl => {
     try {
         const parsed = new URL(rawUrl.trim());
+        // Temporary compatibility patch: XHS migrated short links from
+        // xhslink.com to xhslink.cn, but both domains identify the same link.
+        if (parsed.hostname === 'xhslink.cn') {
+            parsed.hostname = 'xhslink.com';
+        }
         parsed.search = '';
         parsed.hash = '';
         return parsed.toString();
