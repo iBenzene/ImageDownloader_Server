@@ -29,7 +29,11 @@ const mergeRecords = (serverRecords, clientRecords) => {
             const existingTime = new Date(existingRecord.updated_at).getTime();
             const clientTime = new Date(clientRecord.updated_at).getTime();
             if (clientTime > existingTime) {
-                recordMap.set(clientRecord.id, clientRecord);
+                const merged = { ...clientRecord };
+                if (!merged.content_key && merged.url === existingRecord.url && existingRecord.content_key) {
+                    merged.content_key = existingRecord.content_key;
+                }
+                recordMap.set(clientRecord.id, merged);
             }
         }
     }

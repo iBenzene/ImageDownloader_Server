@@ -26,6 +26,7 @@ const savedLinksRouter = require('./routes/api/savedLinks');
 // 使用路由模块
 app.use('/healthz', healthzRouter);
 app.use('/api/v1/extract', extractRouter);
+app.use('/api/v1/resolve', require('./routes/api/resolve'));
 app.use('/api/v1/history', historyRouter);
 app.use('/api/v1/saved-links', savedLinksRouter);
 
