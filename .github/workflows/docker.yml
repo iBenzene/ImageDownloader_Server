@@ -122,11 +122,12 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           script: |
+            set -e
+
             cd ${{ vars.PROJECT_PATH }}
 
-            # Remove the old container and unused images
+            # Remove the old container
             sudo docker compose down
-            # sudo docker image prune -a -f
 
             # Update the image tag in docker-compose.yml
             sed -i "s|image: ghcr.io/${{ env.IMAGE_NAME }}:.*|image: ghcr.io/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.version }}|g" docker-compose.yml
@@ -134,3 +135,19 @@ jobs:
             # Pull the new image and restart the service
             sudo docker pull ghcr.io/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.version }}
             sudo docker compose up -d
+
+            # Clean up old tags only for this repository
+            IMAGE_REPO="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+            CURRENT_IMAGE="$IMAGE_REPO:${{ needs.build.outputs.version }}"
+
+            CURRENT_ID=$(sudo docker image inspect \
+              --format '{{.Id}}' "$CURRENT_IMAGE")
+
+            sudo docker image ls --no-trunc \
+              --format '{{.Repository}} {{.Tag}} {{.ID}}' |
+              awk -v repo="$IMAGE_REPO" -v keep="$CURRENT_ID" \
+                '$1 == repo && $2 != "<none>" && $3 != keep { print $1 ":" $2 }' |
+              while IFS= read -r image; do
+                sudo docker image rm "$image" ||
+                  echo "Skipped image: $image"
+              done
