@@ -11,20 +11,27 @@ const DEFAULT_TTL_SECONDS = 30 * 24 * 60 * 60; // 默认 30 天
 const readExtractCache = async (url, downloader) => {
     try {
         const config = getS3Config();
-        if (!config) { return null; }
+        if (!config) {
+            return null;
+        }
 
         const s3 = createS3Client({
-            endpoint: config.endpoint,
             accessKeyId: config.accessKeyId,
+            endpoint: config.endpoint,
             secretAccessKey: config.secretAccessKey
         });
 
         const key = getCacheKey(url, downloader);
         const s3Result = await getObject(s3, config.bucket, key);
-        if (!s3Result) { return null; }
+        if (!s3Result) {
+            return null;
+        }
 
         const payload = JSON.parse(s3Result.content);
-        if (!Array.isArray(payload.mediaUrls) || payload.mediaUrls.length === 0) {
+        if (
+            !Array.isArray(payload.mediaUrls) ||
+            payload.mediaUrls.length === 0
+        ) {
             return null;
         }
 
@@ -34,7 +41,9 @@ const readExtractCache = async (url, downloader) => {
 
         return payload.mediaUrls;
     } catch (error) {
-        console.warn(`[${new Date().toLocaleString()}] 读取 extract 请求缓存失败: ${error.message}`);
+        console.warn(
+            `[${new Date().toLocaleString()}] 读取 extract 请求缓存失败: ${error.message}`
+        );
         return null;
     }
 };
@@ -42,36 +51,42 @@ const readExtractCache = async (url, downloader) => {
 /** 写入 extract 请求缓存 */
 const writeExtractCache = async (url, downloader, mediaUrls) => {
     try {
-        if (!Array.isArray(mediaUrls) || mediaUrls.length === 0) { return false; }
+        if (!Array.isArray(mediaUrls) || mediaUrls.length === 0) {
+            return false;
+        }
 
         const config = getS3Config();
-        if (!config) { return false; }
+        if (!config) {
+            return false;
+        }
 
         // 校验: 所有 URL 必须已转换为 CDN URL, 避免缓存含有未代理原始 URL 的脏数据
         if (config.publicBase) {
             const base = config.publicBase.replace(/\/+$/, '');
             const uncachedUrls = mediaUrls.filter(u => !u.startsWith(base));
             if (uncachedUrls.length > 0) {
-                console.warn(`[${new Date().toLocaleString()}] 跳过写入 extract 缓存: ${uncachedUrls.length} 个 URL 未成功转换为 CDN URL`);
+                console.warn(
+                    `[${new Date().toLocaleString()}] 跳过写入 extract 缓存: ${uncachedUrls.length} 个 URL 未成功转换为 CDN URL`
+                );
                 uncachedUrls.forEach(u => console.warn(`  - ${u}`));
                 return false;
             }
         }
 
         const s3 = createS3Client({
-            endpoint: config.endpoint,
             accessKeyId: config.accessKeyId,
+            endpoint: config.endpoint,
             secretAccessKey: config.secretAccessKey
         });
 
         const now = Date.now();
         const ttlMs = getTtlMs();
         const payload = {
-            url,
-            downloader,
-            mediaUrls,
             cachedAt: new Date(now).toISOString(),
-            expiresAt: new Date(now + ttlMs).toISOString()
+            downloader,
+            expiresAt: new Date(now + ttlMs).toISOString(),
+            mediaUrls,
+            url
         };
 
         const key = getCacheKey(url, downloader);
@@ -84,7 +99,9 @@ const writeExtractCache = async (url, downloader, mediaUrls) => {
         );
         return true;
     } catch (error) {
-        console.warn(`[${new Date().toLocaleString()}] 写入 extract 请求缓存失败: ${error.message}`);
+        console.warn(
+            `[${new Date().toLocaleString()}] 写入 extract 请求缓存失败: ${error.message}`
+        );
         return false;
     }
 };
@@ -92,7 +109,9 @@ const writeExtractCache = async (url, downloader, mediaUrls) => {
 /** 获取 S3 配置 */
 const getS3Config = () => {
     const app = getApp();
-    if (!app) { return null; }
+    if (!app) {
+        return null;
+    }
 
     const endpoint = app.get('s3Endpoint');
     const bucket = app.get('s3Bucket');
@@ -104,7 +123,7 @@ const getS3Config = () => {
         return null;
     }
 
-    return { endpoint, bucket, accessKeyId, secretAccessKey, publicBase };
+    return { accessKeyId, bucket, endpoint, publicBase, secretAccessKey };
 };
 
 /** 生成缓存 Key */
@@ -139,18 +158,28 @@ const getTtlMs = () => {
     const app = getApp();
     const raw = app ? app.get('extractCacheTtl') : null;
     const ttlSeconds = Number(raw);
-    const validSeconds = Number.isFinite(ttlSeconds) && ttlSeconds > 0
-        ? ttlSeconds
-        : DEFAULT_TTL_SECONDS;
+    const validSeconds =
+        Number.isFinite(ttlSeconds) && ttlSeconds > 0
+            ? ttlSeconds
+            : DEFAULT_TTL_SECONDS;
     return validSeconds * 1000;
 };
 
 /** 检查 extract 请求缓存是否过期 */
 const isExpired = expiresAt => {
-    if (!expiresAt) { return false; }
+    if (!expiresAt) {
+        return false;
+    }
     const expiresAtMs = Date.parse(expiresAt);
-    if (Number.isNaN(expiresAtMs)) { return false; }
+    if (Number.isNaN(expiresAtMs)) {
+        return false;
+    }
     return Date.now() > expiresAtMs;
 };
 
-module.exports = { readExtractCache, writeExtractCache, getCacheKey, normalizeUrl };
+module.exports = {
+    getCacheKey,
+    normalizeUrl,
+    readExtractCache,
+    writeExtractCache
+};

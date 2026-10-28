@@ -83,7 +83,6 @@ async function testFetchUrl(url, downloader) {
 
         fs.writeFileSync(outputPath, content);
         console.log(`[Test] Response saved to: ${outputPath}`);
-
     } catch (error) {
         console.error(`[Test] Fetch failed: ${error.message}`);
         if (error.cause) {
@@ -98,7 +97,9 @@ if (require.main === module) {
     const args = process.argv.slice(2);
     if (args.length < 2) {
         console.log('Usage: node tests/fetchUrlTest.js <url> <downloader>');
-        console.log('Example: node tests/fetchUrlTest.js "https://example.com" "通用下载器"');
+        console.log(
+            'Example: node tests/fetchUrlTest.js "https://example.com" "通用下载器"'
+        );
         process.exit(1);
     }
 

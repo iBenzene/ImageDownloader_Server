@@ -69,6 +69,8 @@ setApp(app);
 
 // 注册错误处理中间件
 app.use((err, req, res, next) => {
+    // Express uses the four-argument signature to identify error middleware.
+    void req;
     console.error('[' + new Date().toLocaleString() + '] 捕获到错误:', err);
     if (res.headersSent) {
         return next(err);
@@ -80,7 +82,9 @@ app.use((err, req, res, next) => {
             timestamp: new Date().toISOString()
         });
     } catch (error) {
-        console.error(`[${new Date().toLocaleString()}] 响应客户端失败: ${error.message}`);
+        console.error(
+            `[${new Date().toLocaleString()}] 响应客户端失败: ${error.message}`
+        );
     }
 });
 

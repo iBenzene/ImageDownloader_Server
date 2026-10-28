@@ -1,40 +1,103 @@
 const js = require('@eslint/js');
+const typescriptPlugin = require('@typescript-eslint/eslint-plugin');
+const typescript = require('@typescript-eslint/parser');
+const { defineConfig } = require('eslint/config');
+const prettierConfig = require('eslint-config-prettier');
+const jsonc = require('eslint-plugin-jsonc');
+const perfectionist = require('eslint-plugin-perfectionist');
+const prettier = require('eslint-plugin-prettier');
+const vue = require('eslint-plugin-vue');
 const globals = require('globals');
 
-module.exports = [
-    js.configs.recommended,
+module.exports = defineConfig([
     {
-        languageOptions: {
-            ecmaVersion: 'latest',
-            sourceType: 'commonjs',
-            globals: {
-                ...globals.node,
-                ...globals.es2021,
-            },
-        },
-        rules: {
-            // 1) 由于是后端代码, 那么使用单引号
-            'quotes': ['error', 'single'],
-
-            // 2) 使用箭头函数, 且单参数不要有括号
-            'arrow-parens': ['error', 'as-needed'],
-
-            // 3) 结尾要有分号
-            'semi': ['error', 'always'],
-
-            // 4) 文件末尾留且只留一个空行
-            'eol-last': ['error', 'always'],
-            'no-multiple-empty-lines': ['error', { 'max': 1, 'maxEOF': 0 }],
-
-            // 5) if 语句规则
-            'curly': ['error', 'all'], // 始终需要大括号
-            'brace-style': ['error', '1tbs', { 'allowSingleLine': true }], // 强制 1TBS 风格, 允许单行
-            'block-spacing': ['error', 'always'], // 单行块内加空格
-            'object-curly-spacing': ['error', 'always'], // 对象字面量内加空格
-
-            // 其他推荐规则
-            'no-unused-vars': 'warn',
-            'no-console': 'off',
-        },
+        ignores: [
+            '**/node_modules/**',
+            '**/dist/**',
+            '**/coverage/**',
+            '**/package-lock.json'
+        ]
     },
-];
+    {
+        extends: [js.configs.recommended],
+        files: ['**/*.{js,mjs,cjs,ts,jsx,tsx,vue}'],
+        languageOptions: {
+            globals: globals.node,
+            parserOptions: { ecmaFeatures: { jsx: true } }
+        }
+    },
+    {
+        files: ['**/*.{jsx,tsx,vue}', '**/*.browser.js'],
+        languageOptions: { globals: globals.browser }
+    },
+    {
+        files: ['**/*.{js,mjs,cjs,jsx}'],
+        rules: {
+            'no-unused-vars': ['error', { args: 'all' }],
+            'no-var': 'error',
+            'prefer-const': 'error'
+        }
+    },
+    {
+        extends: typescriptPlugin.configs['flat/recommended'].map(config => ({
+            ...config,
+            files: ['**/*.{ts,tsx,vue}']
+        })),
+        files: ['**/*.{ts,tsx,vue}'],
+        rules: {
+            '@typescript-eslint/no-unused-vars': ['error', { args: 'all' }]
+        }
+    },
+    ...vue.configs['flat/recommended'],
+    {
+        files: ['**/*.vue'],
+        languageOptions: { parserOptions: { parser: typescript } }
+    },
+    {
+        extends: [jsonc.configs['flat/recommended-with-json']],
+        files: ['**/*.json']
+    },
+    {
+        extends: [jsonc.configs['flat/recommended-with-jsonc']],
+        files: ['**/*.jsonc']
+    },
+    prettierConfig,
+    ...jsonc.configs['flat/prettier'],
+    {
+        files: ['**/*.{js,mjs,cjs,ts,jsx,tsx,vue}'],
+        plugins: { perfectionist },
+        rules: {
+            'no-restricted-syntax': [
+                'error',
+                {
+                    message: '回调函数必须使用箭头函数。',
+                    selector: 'CallExpression > FunctionExpression.arguments'
+                }
+            ],
+            'perfectionist/sort-objects': [
+                'error',
+                {
+                    ignoreCase: false,
+                    partitionByComputedKey: true,
+                    type: 'alphabetical'
+                }
+            ],
+            'prefer-arrow-callback': ['error', { allowUnboundThis: false }]
+        }
+    },
+    {
+        files: ['**/*.{json,jsonc}'],
+        ignores: ['**/package.json'],
+        rules: {
+            'jsonc/sort-keys': [
+                'error',
+                { order: { type: 'asc' }, pathPattern: '.*' }
+            ]
+        }
+    },
+    {
+        files: ['**/*.{js,mjs,cjs,ts,jsx,tsx,vue,json,jsonc}'],
+        plugins: { prettier },
+        rules: { 'prettier/prettier': 'error' }
+    }
+]);

@@ -40,16 +40,16 @@ const mergeRecords = (serverRecords, clientRecords) => {
 /**
  * POST /v1/history/sync
  * Incremental sync history records
- * 
+ *
  * Query params:
  *   - token: authentication token (required)
  *   - since: ISO8601 timestamp, return records updated after this time (optional)
- * 
+ *
  * Body:
  *   - records: array of history records to sync (optional)
  */
 router.post('/sync', async (req, res) => {
-    const { token, since } = req.query;
+    const { since, token } = req.query;
     const app = getApp();
 
     // Authenticate
@@ -60,8 +60,8 @@ router.post('/sync', async (req, res) => {
     try {
         // Get S3 client config
         const s3 = createS3Client({
-            endpoint: app.get('s3Endpoint'),
             accessKeyId: app.get('s3AccessKeyId'),
+            endpoint: app.get('s3Endpoint'),
             secretAccessKey: app.get('s3SecretAccessKey')
         });
         const bucket = app.get('s3Bucket');
@@ -82,7 +82,9 @@ router.post('/sync', async (req, res) => {
                         serverRecords = JSON.parse(s3Result.content);
                         etag = s3Result.etag;
                     } catch (parseError) {
-                        console.error(`[${new Date().toLocaleString()}] 解析历史记录失败: ${parseError.message}`);
+                        console.error(
+                            `[${new Date().toLocaleString()}] 解析历史记录失败: ${parseError.message}`
+                        );
                         serverRecords = [];
                     }
                 }
@@ -111,7 +113,9 @@ router.post('/sync', async (req, res) => {
                         'application/json',
                         putOptions
                     );
-                    console.log(`[${new Date().toLocaleString()}] 同步历史记录成功, 共 ${finalRecords.length} 条记录`);
+                    console.log(
+                        `[${new Date().toLocaleString()}] 同步历史记录成功, 共 ${finalRecords.length} 条记录`
+                    );
                 }
 
                 // Filter records by since parameter
@@ -119,7 +123,9 @@ router.post('/sync', async (req, res) => {
                 if (since) {
                     const sinceTime = new Date(since).getTime();
                     recordsToReturn = finalRecords.filter(record => {
-                        const recordTime = new Date(record.updated_at).getTime();
+                        const recordTime = new Date(
+                            record.updated_at
+                        ).getTime();
                         return recordTime > sinceTime;
                     });
                 }
@@ -128,18 +134,27 @@ router.post('/sync', async (req, res) => {
                     records: recordsToReturn,
                     syncedAt: new Date().toISOString()
                 });
-
             } catch (error) {
                 // 412 Precondition Failed
-                if (error.name === 'PreconditionFailed' || error.$metadata?.httpStatusCode === 412) {
+                if (
+                    error.name === 'PreconditionFailed' ||
+                    error.$metadata?.httpStatusCode === 412
+                ) {
                     const attempt = MAX_RETRIES - retries + 1;
-                    console.warn(`[${new Date().toLocaleString()}] 同步历史记录冲突, 第 ${attempt} 次重试...`);
+                    console.warn(
+                        `[${new Date().toLocaleString()}] 同步历史记录冲突, 第 ${attempt} 次重试...`
+                    );
                     retries--;
                     if (retries === 0) {
-                        throw new Error('服务器繁忙, 请稍后重试', { cause: error });
+                        throw new Error('服务器繁忙, 请稍后重试', {
+                            cause: error
+                        });
                     }
                     // Exponential backoff with jitter
-                    const delay = Math.min(1000, (Math.pow(2, attempt) * 50) + Math.random() * 200);
+                    const delay = Math.min(
+                        1000,
+                        Math.pow(2, attempt) * 50 + Math.random() * 200
+                    );
                     await new Promise(resolve => setTimeout(resolve, delay));
                     continue;
                 }
@@ -147,8 +162,13 @@ router.post('/sync', async (req, res) => {
             }
         }
     } catch (error) {
-        console.error(`[${new Date().toLocaleString()}] 同步历史记录失败:`, error);
-        return res.status(500).json({ error: `同步历史记录失败: ${error.message || 'UnknownError'}` });
+        console.error(
+            `[${new Date().toLocaleString()}] 同步历史记录失败:`,
+            error
+        );
+        return res.status(500).json({
+            error: `同步历史记录失败: ${error.message || 'UnknownError'}`
+        });
     }
 });
 

@@ -2,7 +2,6 @@
 
 const fs = require('fs');
 const axios = require('axios');
-const path = require('path');
 const { promisify } = require('util');
 const stream = require('stream');
 const pipeline = promisify(stream.pipeline);
@@ -24,7 +23,7 @@ const getApp = () => {
 const commonHeaders = {
     Accept: '*/*',
     'User-Agent':
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 };
 
 /** 判断是否应该使用代理 */
@@ -40,8 +39,12 @@ const shouldUseProxy = useProxy => {
 const ensureHttps = url => {
     try {
         const u = new URL(url);
-        if (u.protocol === 'http:') { u.protocol = 'https:'; }
-        if (u.protocol !== 'https:') { return null; }
+        if (u.protocol === 'http:') {
+            u.protocol = 'https:';
+        }
+        if (u.protocol !== 'https:') {
+            return null;
+        }
         return u.toString();
     } catch {
         return null;
@@ -55,10 +58,14 @@ const ensureHttps = url => {
  * @returns {Object|null} 解析后的对象
  */
 const extractJsonFromHtml = (html, variableName) => {
-    if (typeof html !== 'string' || !variableName) { return null; }
+    if (typeof html !== 'string' || !variableName) {
+        return null;
+    }
 
     const startIndex = html.indexOf(variableName);
-    if (startIndex === -1) { return null; }
+    if (startIndex === -1) {
+        return null;
+    }
 
     // 寻找第一个 '{' 或 '[' (以支持数组)
     // 兼容 B 站 (variableName 后可能有其他字符) 和 小红书 (variableName = {...})
@@ -67,13 +74,18 @@ const extractJsonFromHtml = (html, variableName) => {
         i++;
     }
 
-    if (i >= html.length) { return null; }
+    if (i >= html.length) {
+        return null;
+    }
 
     const startChar = html[i];
     const endChar = startChar === '{' ? '}' : ']';
 
     // 简单配对, 考虑字符串与转义
-    let brace = 0, inStr = false, strQuote = '', escape = false;
+    let brace = 0,
+        inStr = false,
+        strQuote = '',
+        escape = false;
     const start = i;
 
     // 从 i 开始遍历
@@ -91,13 +103,15 @@ const extractJsonFromHtml = (html, variableName) => {
             continue;
         }
 
-        if (ch === '\'' || ch === '"') {
+        if (ch === "'" || ch === '"') {
             inStr = true;
             strQuote = ch;
             continue;
         }
 
-        if (ch === startChar) { brace++; }
+        if (ch === startChar) {
+            brace++;
+        }
         if (ch === endChar) {
             brace--;
             if (brace === 0) {
@@ -106,7 +120,9 @@ const extractJsonFromHtml = (html, variableName) => {
         }
     }
 
-    if (brace !== 0) { return null; }
+    if (brace !== 0) {
+        return null;
+    }
 
     let objLiteral = html.slice(start, i + 1);
 
@@ -123,7 +139,7 @@ const extractJsonFromHtml = (html, variableName) => {
         const context = vm.createContext(sandbox);
         script.runInContext(context, { timeout: 50 });
         return sandbox.result;
-    } catch (error) {
+    } catch {
         return null; // Silent fail or log if needed, but keeping it simple for common util
     }
 };
@@ -136,13 +152,21 @@ const extractJsonFromHtml = (html, variableName) => {
  */
 const downloadStream = async (url, outputPath, headers = {}) => {
     const response = await axios({
-        url,
+        headers,
         method: 'GET',
         responseType: 'stream',
-        headers
+        url
     });
 
     await pipeline(response.data, fs.createWriteStream(outputPath));
 };
 
-module.exports = { setApp, getApp, commonHeaders, shouldUseProxy, ensureHttps, extractJsonFromHtml, downloadStream };
+module.exports = {
+    commonHeaders,
+    downloadStream,
+    ensureHttps,
+    extractJsonFromHtml,
+    getApp,
+    setApp,
+    shouldUseProxy
+};

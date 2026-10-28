@@ -4,7 +4,7 @@ const express = require('express');
 const router = express.Router();
 
 // 健康检查接口
-router.get('/', (req, res) => {
+router.get('/', (...[, res]) => {
     return res.send('OK');
 });
 

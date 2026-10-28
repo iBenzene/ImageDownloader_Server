@@ -1,6 +1,10 @@
 // src/xhsHandler.js
 
-const { extractJsonFromHtml, shouldUseProxy, ensureHttps } = require('../utils/common');
+const {
+    ensureHttps,
+    extractJsonFromHtml,
+    shouldUseProxy
+} = require('../utils/common');
 const { batchCacheResources } = require('./downloadProxy');
 
 const getFirstNote = state => {
@@ -59,13 +63,16 @@ const extractXhsVideoUrls = html => {
 };
 
 /** 提取小红书实况封面和视频的 URL */
-const extractXhsLivePhotoUrls = async (response, useProxy) => { // 小红书实况图片下载器
+const extractXhsLivePhotoUrls = async (response, useProxy) => {
+    // 小红书实况图片下载器
     const html = response.data;
 
     // 路径: id = note.firstNoteId -> note.noteDetailMap[id].note.imageList
     const imageList = getXhsImageList(html);
 
-    if (imageList.length === 0) { return []; }
+    if (imageList.length === 0) {
+        return [];
+    }
 
     const resultObjects = [];
     try {
@@ -81,7 +88,7 @@ const extractXhsLivePhotoUrls = async (response, useProxy) => { // 小红书实�
                         // 实况图片: 同时返回封面和视频
                         resultObjects.push({
                             cover: imageUrl,
-                            video: videoUrl,
+                            video: videoUrl
                         });
                     } else {
                         // 标记为实况图片但没有视频 URL, 当作普通图片处理
@@ -90,31 +97,39 @@ const extractXhsLivePhotoUrls = async (response, useProxy) => { // 小红书实�
                         );
                         resultObjects.push({
                             cover: imageUrl,
-                            video: null,
+                            video: null
                         });
                     }
                 } else {
                     // 普通图片
                     resultObjects.push({
                         cover: imageUrl,
-                        video: null,
+                        video: null
                     });
                 }
             }
         });
     } catch (error) {
-        console.error(`[${new Date().toLocaleString()}] 解析 imageList 时出错: ${error}`);
+        console.error(
+            `[${new Date().toLocaleString()}] 解析 imageList 时出错: ${error}`
+        );
         return [];
     }
 
     // 如果未开启代理, 直接返回原始对象
-    if (!shouldUseProxy(useProxy)) { return resultObjects; }
+    if (!shouldUseProxy(useProxy)) {
+        return resultObjects;
+    }
 
     // 收集所有需要缓存的 URL
     const allUrls = [];
     for (const item of resultObjects) {
-        if (item.cover) { allUrls.push(item.cover); }
-        if (item.video) { allUrls.push(item.video); }
+        if (item.cover) {
+            allUrls.push(item.cover);
+        }
+        if (item.video) {
+            allUrls.push(item.video);
+        }
     }
 
     // 批量缓存
@@ -124,18 +139,22 @@ const extractXhsLivePhotoUrls = async (response, useProxy) => { // 小红书实�
 
         // 替换回对象中
         return resultObjects.map(item => ({
-            cover: item.cover ? (mapping.get(item.cover) || item.cover) : null,
-            video: item.video ? (mapping.get(item.video) || item.video) : null
+            cover: item.cover ? mapping.get(item.cover) || item.cover : null,
+            video: item.video ? mapping.get(item.video) || item.video : null
         }));
     } catch (error) {
-        console.error(`[${new Date().toLocaleString()}] 批量缓存小红书实况图片失败: ${error.message}`);
+        console.error(
+            `[${new Date().toLocaleString()}] 批量缓存小红书实况图片失败: ${error.message}`
+        );
         return resultObjects;
     }
 };
 
 /** 从 stream 对象中获取视频 URL */
 const getStreamUrl = stream => {
-    if (!stream || typeof stream !== 'object') { return null; }
+    if (!stream || typeof stream !== 'object') {
+        return null;
+    }
 
     // 按优先级检查不同的视频编码格式
     const codecPriority = ['av1', 'h266', 'h265', 'h264'];
@@ -154,7 +173,9 @@ const getStreamUrl = stream => {
     }
 
     // 如果没有找到预期的视频编码格式, 检查其他可能的属性
-    console.warn(`[${new Date().toLocaleString()}] 在 stream 对象中未找到预期的视频编码格式, 检查其他可能的属性`);
+    console.warn(
+        `[${new Date().toLocaleString()}] 在 stream 对象中未找到预期的视频编码格式, 检查其他可能的属性`
+    );
     for (const key in stream) {
         if (Array.isArray(stream[key]) && stream[key].length > 0) {
             const codecData = stream[key][0];
@@ -175,7 +196,9 @@ const addUrl = (urls, url) => {
 };
 
 const getImageUrl = item => {
-    if (!item || typeof item !== 'object') { return null; }
+    if (!item || typeof item !== 'object') {
+        return null;
+    }
 
     const urls = [];
     addUrl(urls, item.urlDefault);
@@ -188,7 +211,9 @@ const getImageUrl = item => {
 };
 
 const parseJson = value => {
-    if (!value || typeof value !== 'string') { return null; }
+    if (!value || typeof value !== 'string') {
+        return null;
+    }
     try {
         return JSON.parse(value.replace(/\\u002F/g, '/'));
     } catch {
@@ -196,4 +221,8 @@ const parseJson = value => {
     }
 };
 
-module.exports = { extractXhsImageUrls, extractXhsLivePhotoUrls, extractXhsVideoUrls };
+module.exports = {
+    extractXhsImageUrls,
+    extractXhsLivePhotoUrls,
+    extractXhsVideoUrls
+};

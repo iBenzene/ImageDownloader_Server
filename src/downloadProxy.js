@@ -10,7 +10,13 @@ const { getApp } = require('../utils/common');
 /**
  * 将多个资源批量缓存到 S3, 并返回 S3 URLs
  */
-const batchCacheResources = async (urls, prefix, headers = {}, concurrency = 5, sourceId = null) => {
+const batchCacheResources = async (
+    urls,
+    prefix,
+    headers = {},
+    concurrency = 5,
+    sourceId = null
+) => {
     const MAX_RETRIES = 3;
     const results = [];
     // 数组去重
@@ -20,22 +26,34 @@ const batchCacheResources = async (urls, prefix, headers = {}, concurrency = 5, 
     const worker = async () => {
         while (idx < queue.length) {
             const i = idx++; // 原子操作 (js单线程)
-            if (i >= queue.length) { break; }
+            if (i >= queue.length) {
+                break;
+            }
 
             const u = queue[i];
             let success = false;
             for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
                 try {
-                    const s3url = await cacheResourceToS3(u, prefix, headers, sourceId);
+                    const s3url = await cacheResourceToS3(
+                        u,
+                        prefix,
+                        headers,
+                        sourceId
+                    );
                     results.push([u, s3url]); // 成功返回映射
                     success = true;
                     break;
                 } catch (error) {
                     if (attempt < MAX_RETRIES) {
-                        console.warn(`[${new Date().toLocaleString()}] 缓存资源重试 ${attempt}/${MAX_RETRIES} (${prefix}): ${u}, error: ${error.message}`);
+                        console.warn(
+                            `[${new Date().toLocaleString()}] 缓存资源重试 ${attempt}/${MAX_RETRIES} (${prefix}): ${u}, error: ${error.message}`
+                        );
                         await new Promise(r => setTimeout(r, 1000 * attempt)); // 退避等待
                     } else {
-                        console.error(`[${new Date().toLocaleString()}] 缓存资源失败 (${prefix}), 已达最大重试次数: ${u}`, error.message);
+                        console.error(
+                            `[${new Date().toLocaleString()}] 缓存资源失败 (${prefix}), 已达最大重试次数: ${u}`,
+                            error.message
+                        );
                     }
                 }
             }
@@ -46,7 +64,10 @@ const batchCacheResources = async (urls, prefix, headers = {}, concurrency = 5, 
     };
 
     // 启动 worker
-    const workers = Array.from({ length: Math.min(concurrency, queue.length) }, () => worker());
+    const workers = Array.from(
+        { length: Math.min(concurrency, queue.length) },
+        () => worker()
+    );
     await Promise.all(workers);
 
     return new Map(results);
@@ -55,7 +76,12 @@ const batchCacheResources = async (urls, prefix, headers = {}, concurrency = 5, 
 /**
  * 将单个资源缓存到 S3, 并返回 S3 URL
  */
-const cacheResourceToS3 = async (url, prefix, headers = {}, sourceId = null) => {
+const cacheResourceToS3 = async (
+    url,
+    prefix,
+    headers = {},
+    sourceId = null
+) => {
     const app = getApp();
 
     const s3Endpoint = app.get('s3Endpoint');
@@ -70,8 +96,8 @@ const cacheResourceToS3 = async (url, prefix, headers = {}, sourceId = null) => 
     }
 
     const s3 = createS3Client({
-        endpoint: s3Endpoint,
         accessKeyId: s3AccessKeyId,
+        endpoint: s3Endpoint,
         secretAccessKey: s3SecretAccessKey
     });
 
@@ -79,10 +105,17 @@ const cacheResourceToS3 = async (url, prefix, headers = {}, sourceId = null) => 
     const enableCacheReuse = app.get('enableCacheReuse');
 
     try {
-        const exists = enableCacheReuse ? await objectExists(s3, s3Bucket, key) : false;
+        const exists = enableCacheReuse
+            ? await objectExists(s3, s3Bucket, key)
+            : false;
         if (!exists) {
-            const { buffer, contentType } = await downloadResource(url, headers);
-            console.debug(`[${new Date().toLocaleString()}] 上传资源到 S3: ${key}, size: ${buffer.length}`);
+            const { buffer, contentType } = await downloadResource(
+                url,
+                headers
+            );
+            console.debug(
+                `[${new Date().toLocaleString()}] 上传资源到 S3: ${key}, size: ${buffer.length}`
+            );
             await putObject(s3, s3Bucket, key, buffer, contentType);
         }
     } catch (error) {
@@ -90,13 +123,24 @@ const cacheResourceToS3 = async (url, prefix, headers = {}, sourceId = null) => 
         throw new Error(`S3 操作失败: ${error.message}`, { cause: error });
     }
 
-    return buildPublicUrl({ publicBase: s3PublicBase, endpoint: s3Endpoint, bucket: s3Bucket, key });
+    return buildPublicUrl({
+        bucket: s3Bucket,
+        endpoint: s3Endpoint,
+        key,
+        publicBase: s3PublicBase
+    });
 };
 
 /**
  * 将单个资源上传到 S3, 并返回 S3 URL
  */
-const uploadResourceToS3 = async (url, contentType, prefix, sourceId = null, useOriginalFilename = false) => {
+const uploadResourceToS3 = async (
+    url,
+    contentType,
+    prefix,
+    sourceId = null,
+    useOriginalFilename = false
+) => {
     const fs = require('fs');
     if (!fs.existsSync(url)) {
         throw new Error(`Local file not found: ${url}`);
@@ -114,8 +158,8 @@ const uploadResourceToS3 = async (url, contentType, prefix, sourceId = null, use
     }
 
     const s3 = createS3Client({
-        endpoint: s3Endpoint,
         accessKeyId: s3AccessKeyId,
+        endpoint: s3Endpoint,
         secretAccessKey: s3SecretAccessKey
     });
 
@@ -124,23 +168,37 @@ const uploadResourceToS3 = async (url, contentType, prefix, sourceId = null, use
     const enableCacheReuse = app.get('enableCacheReuse');
 
     try {
-        const exists = enableCacheReuse ? await objectExists(s3, s3Bucket, key) : false;
+        const exists = enableCacheReuse
+            ? await objectExists(s3, s3Bucket, key)
+            : false;
         if (!exists) {
             const buffer = fs.readFileSync(url);
-            console.debug(`[${new Date().toLocaleString()}] 上传资源到 S3: ${key}, size: ${buffer.length}`);
+            console.debug(
+                `[${new Date().toLocaleString()}] 上传资源到 S3: ${key}, size: ${buffer.length}`
+            );
             await putObject(s3, s3Bucket, key, buffer, contentType);
         }
     } catch (error) {
         throw new Error(`S3 操作失败: ${error.message}`, { cause: error });
     }
 
-    return buildPublicUrl({ publicBase: s3PublicBase, endpoint: s3Endpoint, bucket: s3Bucket, key });
+    return buildPublicUrl({
+        bucket: s3Bucket,
+        endpoint: s3Endpoint,
+        key,
+        publicBase: s3PublicBase
+    });
 };
 
 /**
  * 从 S3 获取已存在的单个资源的 URL, 如果不存在则返回 null
  */
-const getResourceFromS3 = async (url, prefix, sourceId = null, useOriginalFilename = false) => {
+const getResourceFromS3 = async (
+    url,
+    prefix,
+    sourceId = null,
+    useOriginalFilename = false
+) => {
     const app = getApp();
 
     const s3Endpoint = app.get('s3Endpoint');
@@ -154,8 +212,8 @@ const getResourceFromS3 = async (url, prefix, sourceId = null, useOriginalFilena
     }
 
     const s3 = createS3Client({
-        endpoint: s3Endpoint,
         accessKeyId: s3AccessKeyId,
+        endpoint: s3Endpoint,
         secretAccessKey: s3SecretAccessKey
     });
 
@@ -163,9 +221,16 @@ const getResourceFromS3 = async (url, prefix, sourceId = null, useOriginalFilena
     const enableCacheReuse = app.get('enableCacheReuse');
 
     try {
-        const exists = enableCacheReuse ? await objectExists(s3, s3Bucket, key) : false;
+        const exists = enableCacheReuse
+            ? await objectExists(s3, s3Bucket, key)
+            : false;
         if (exists) {
-            return buildPublicUrl({ publicBase: s3PublicBase, endpoint: s3Endpoint, bucket: s3Bucket, key });
+            return buildPublicUrl({
+                bucket: s3Bucket,
+                endpoint: s3Endpoint,
+                key,
+                publicBase: s3PublicBase
+            });
         }
     } catch (error) {
         throw new Error(`S3 操作失败: ${error.message}`, { cause: error });
@@ -179,40 +244,57 @@ const getResourceFromS3 = async (url, prefix, sourceId = null, useOriginalFilena
  */
 const downloadResource = async (url, headers) => {
     const response = await axios.get(url, {
-        responseType: 'arraybuffer',
         headers,
-        timeout: 30000,
         maxRedirects: 3,
+        responseType: 'arraybuffer',
+        timeout: 30000,
         validateStatus: s => s >= 200 && s < 400
     });
 
     let contentType = response.headers['content-type'];
     if (!contentType) {
         const guessed = mime.lookup(url);
-        if (guessed) { contentType = guessed; }
+        if (guessed) {
+            contentType = guessed;
+        }
     }
-    return { buffer: Buffer.from(response.data), contentType: contentType || 'application/octet-stream' };
+    return {
+        buffer: Buffer.from(response.data),
+        contentType: contentType || 'application/octet-stream'
+    };
 };
 
-module.exports = { batchCacheResources, cacheResourceToS3, uploadResourceToS3, getResourceFromS3 };
+module.exports = {
+    batchCacheResources,
+    cacheResourceToS3,
+    getResourceFromS3,
+    uploadResourceToS3
+};
 
 /**
  * 根据 URL 生成缓存 Key
  * 格式: cache/<prefix>/[sourceId/]<filename>.<ext>
  */
-const generateKey = (url, prefix, sourceId = null, useOriginalFilename = false) => {
+const generateKey = (
+    url,
+    prefix,
+    sourceId = null,
+    useOriginalFilename = false
+) => {
     // 去掉 URL 的查询参数
     const cleanUrl = url.split('?')[0];
 
     // 尝试提取文件后缀 (默认为 jpg)
-    let ext = path.extname(cleanUrl).substring(1) || 'jpg';
+    const ext = path.extname(cleanUrl).substring(1) || 'jpg';
 
     // 生成文件名
     let filename;
     if (sourceId || useOriginalFilename) {
         // 如果有 sourceId, 或者显式要求保留原始文件名, 则使用 URL 的最后一部分作为文件名
         const basename = path.basename(cleanUrl);
-        filename = basename.includes('.') ? basename.substring(0, basename.lastIndexOf('.')) : basename;
+        filename = basename.includes('.')
+            ? basename.substring(0, basename.lastIndexOf('.'))
+            : basename;
     } else {
         // 如果没有 sourceId 且不保留原始文件名, 则对 URL 进行 MD5 哈希
         filename = crypto.createHash('md5').update(cleanUrl).digest('hex');
@@ -227,7 +309,7 @@ const generateKey = (url, prefix, sourceId = null, useOriginalFilename = false) 
  * 构造公开访问的 URL
  * 优先使用 S3_PUBLIC_BASE, 例如自定义的 CDN 域名, 否则回退为 endpoint + /bucket/key
  */
-const buildPublicUrl = ({ publicBase, endpoint, bucket, key }) => {
+const buildPublicUrl = ({ bucket, endpoint, key, publicBase }) => {
     if (publicBase) {
         // e.g. https://cdn.example.com/{key}
         return `${publicBase.replace(/\/+$/, '')}/${key}`;

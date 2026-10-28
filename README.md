@@ -8,54 +8,55 @@
 
 ### 🐳 Docker 部署
 
-``` bash
+```bash
 sudo docker run -p 3080:3080 -e TOKEN=your_token ghcr.io/ibenzene/image-downloader_server
 ```
+
 或者
 
-``` yaml
+```yaml
 name: image-downloader
 
 services:
-  server:
-    image: ghcr.io/ibenzene/image-downloader_server
-    container_name: image-downloader_server
-    ports:
-      - 3080:3080
-    environment:
-      - TZ=Asia/Shanghai
-      - TOKEN=your_token
-    healthcheck:
-      test: 
-        - CMD
-        - curl
-        - -f
-        - http://localhost:3080/healthz
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+    server:
+        image: ghcr.io/ibenzene/image-downloader_server
+        container_name: image-downloader_server
+        ports:
+            - 3080:3080
+        environment:
+            - TZ=Asia/Shanghai
+            - TOKEN=your_token
+        healthcheck:
+            test:
+                - CMD
+                - curl
+                - -f
+                - http://localhost:3080/healthz
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 30s
 ```
 
 然后在客户端的「设置」👉「服务端地址」中填入 `http://your_server_ip:3080/api` 或 `https://your_domain/api`，并填入正确的 `TOKEN`。
 
 ### ⚙️ 环境变量
 
-| 变量名 | 说明 | 默认值 |
-| ------- | ------- | ------- |
-| PORT | 监听的端口号 | 3080 |
-| TOKEN | 服务端令牌，用于鉴权，需要自己设置 | default_token |
-| XHS_COOKIE | 极少数笔记需要 Cookie（含游客 Cookie）才能访问，请自行通过浏览器抓包获取「小红书」Cookie（必须包含 `web_session`） | - |
-| BILIBILI_COOKIE | 如需下载大会员专属清晰度的视频，请自行通过浏览器抓包获取哔哩哔哩 Cookie | - |
-| PIXIV_COOKIE | 如需使用 Pixiv 下载器，请自行通过浏览器抓包获取 Pixiv Cookie | - |
-| TWITTER_COOKIE | 如需使用 Twitter (X) 下载器，请自行通过浏览器抓包获取 Twitter (X) Cookie | - |
-| S3_ENDPOINT | 符合 S3 规范的对象存储服务器，包括 Amazon S3、Cloudflare R2、MinIO 等，例如 `https://<accountid>.r2.cloudflarestorage.com` | - |
-| S3_BUCKET | S3 存储桶的名称 | - |
-| S3_ACCESS_KEY_ID | S3 服务的访问凭证 | - |
-| S3_SECRET_ACCESS_KEY | S3 服务的访问密钥 | - |
-| S3_PUBLIC_BASE | 可选，S3 存储桶的访问路径，允许使用 CDN 或自定义域名，支持 virtual-hosted-style 的访问方式，例如 `https://<accountid>.r2.cloudflarestorage.com/{bucket}` 或 `https://cdn.example.com` | - |
-| ENABLE_CACHE_REUSE | 是否复用已有缓存，仅在 `useProxy=true` 的代理路径下生效，`true` 表示启用 extract 请求缓存并复用已存在的 S3 对象，`false` 表示忽略已有的 S3 缓存并重新下载资源 | false |
-| EXTRACT_CACHE_TTL_SECONDS | extract 请求的缓存时间（秒），例如 `86400` 表示 1 天 | 2592000 |
+| 变量名                    | 说明                                                                                                                                                                                  | 默认值        |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| PORT                      | 监听的端口号                                                                                                                                                                          | 3080          |
+| TOKEN                     | 服务端令牌，用于鉴权，需要自己设置                                                                                                                                                    | default_token |
+| XHS_COOKIE                | 极少数笔记需要 Cookie（含游客 Cookie）才能访问，请自行通过浏览器抓包获取「小红书」Cookie（必须包含 `web_session`）                                                                    | -             |
+| BILIBILI_COOKIE           | 如需下载大会员专属清晰度的视频，请自行通过浏览器抓包获取哔哩哔哩 Cookie                                                                                                               | -             |
+| PIXIV_COOKIE              | 如需使用 Pixiv 下载器，请自行通过浏览器抓包获取 Pixiv Cookie                                                                                                                          | -             |
+| TWITTER_COOKIE            | 如需使用 Twitter (X) 下载器，请自行通过浏览器抓包获取 Twitter (X) Cookie                                                                                                              | -             |
+| S3_ENDPOINT               | 符合 S3 规范的对象存储服务器，包括 Amazon S3、Cloudflare R2、MinIO 等，例如 `https://<accountid>.r2.cloudflarestorage.com`                                                            | -             |
+| S3_BUCKET                 | S3 存储桶的名称                                                                                                                                                                       | -             |
+| S3_ACCESS_KEY_ID          | S3 服务的访问凭证                                                                                                                                                                     | -             |
+| S3_SECRET_ACCESS_KEY      | S3 服务的访问密钥                                                                                                                                                                     | -             |
+| S3_PUBLIC_BASE            | 可选，S3 存储桶的访问路径，允许使用 CDN 或自定义域名，支持 virtual-hosted-style 的访问方式，例如 `https://<accountid>.r2.cloudflarestorage.com/{bucket}` 或 `https://cdn.example.com` | -             |
+| ENABLE_CACHE_REUSE        | 是否复用已有缓存，仅在 `useProxy=true` 的代理路径下生效，`true` 表示启用 extract 请求缓存并复用已存在的 S3 对象，`false` 表示忽略已有的 S3 缓存并重新下载资源                         | false         |
+| EXTRACT_CACHE_TTL_SECONDS | extract 请求的缓存时间（秒），例如 `86400` 表示 1 天                                                                                                                                  | 2592000       |
 
 ### 🔄 代理下载
 

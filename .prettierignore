@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+package-lock.json
+*.sass
+*.styl
+.env*
+
+**/node_modules/**
+**/dist/**
+**/coverage/**
+**/package-lock.json

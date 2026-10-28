@@ -64,13 +64,16 @@ async function testExtractByUrl(url, downloader, useProxy) {
     console.log(`[Test] useProxy: ${useProxy}`);
 
     try {
-        const enableCacheReuse = mockApp.get('enableCacheReuse') && shouldUseProxy(useProxy);
+        const enableCacheReuse =
+            mockApp.get('enableCacheReuse') && shouldUseProxy(useProxy);
 
         // 如果开启了缓存, 优先读取 extract 请求缓存, 命中则直接返回 S3 中的数据
         if (enableCacheReuse) {
             const cachedMediaUrls = await readExtractCache(url, downloader);
             if (cachedMediaUrls && cachedMediaUrls.length > 0) {
-                console.log(`[Test] [${new Date().toLocaleString()}] extract cache hit: ${downloader}, url: ${url}, return: ${JSON.stringify(cachedMediaUrls, null, 2)}`);
+                console.log(
+                    `[Test] [${new Date().toLocaleString()}] extract cache hit: ${downloader}, url: ${url}, return: ${JSON.stringify(cachedMediaUrls, null, 2)}`
+                );
                 return cachedMediaUrls;
             }
         }
@@ -81,29 +84,58 @@ async function testExtractByUrl(url, downloader, useProxy) {
 
         // 解析网络请求的响应
         console.log('[Test] Parsing response...');
-        let mediaUrls = await parsingResponse(url, response, downloader, useProxy);
+        let mediaUrls = await parsingResponse(
+            url,
+            response,
+            downloader,
+            useProxy
+        );
 
         // 处理未提取到资源的情况
         if (mediaUrls.length === 0) {
-            console.warn(`[Test] 请求 ${url} 的响应: ${JSON.stringify(response.data, null, 2).substring(0, 500)}... (truncated)`);
+            console.warn(
+                `[Test] 请求 ${url} 的响应: ${JSON.stringify(response.data, null, 2).substring(0, 500)}... (truncated)`
+            );
 
             const xhsCookie = mockApp.get('xhsCookie');
-            if (xhsCookie && (downloader === '小红书图片下载器' || downloader === '小红书实况图片下载器' || downloader === '小红书视频下载器')) {
-                console.log('[Test] ⚠️ 未提取到「小红书」资源, 尝试携带 Cookie 重试...');
+            if (
+                xhsCookie &&
+                (downloader === '小红书图片下载器' ||
+                    downloader === '小红书实况图片下载器' ||
+                    downloader === '小红书视频下载器')
+            ) {
+                console.log(
+                    '[Test] ⚠️ 未提取到「小红书」资源, 尝试携带 Cookie 重试...'
+                );
                 try {
                     // 携带 Cookie 再次发起请求
-                    const retryResponse = await fetchUrl(url, downloader, xhsCookie);
+                    const retryResponse = await fetchUrl(
+                        url,
+                        downloader,
+                        xhsCookie
+                    );
 
                     // 解析新的响应
-                    const retryMediaUrls = await parsingResponse(url, retryResponse, downloader, useProxy);
+                    const retryMediaUrls = await parsingResponse(
+                        url,
+                        retryResponse,
+                        downloader,
+                        useProxy
+                    );
                     if (retryMediaUrls.length > 0) {
-                        console.log(`[Test] ✅ 携带 Cookie 重试成功, 提取到 ${retryMediaUrls.length} 个资源`);
+                        console.log(
+                            `[Test] ✅ 携带 Cookie 重试成功, 提取到 ${retryMediaUrls.length} 个资源`
+                        );
                         mediaUrls = retryMediaUrls;
                     } else {
-                        console.warn('[Test] ❌ 携带 Cookie 重试后仍未提取到资源');
+                        console.warn(
+                            '[Test] ❌ 携带 Cookie 重试后仍未提取到资源'
+                        );
                     }
                 } catch (retryError) {
-                    console.error(`[Test] ❌ 携带 Cookie 重试请求失败: ${retryError.message}`);
+                    console.error(
+                        `[Test] ❌ 携带 Cookie 重试请求失败: ${retryError.message}`
+                    );
                 }
             }
         }
@@ -112,7 +144,10 @@ async function testExtractByUrl(url, downloader, useProxy) {
             await writeExtractCache(url, downloader, mediaUrls);
         }
 
-        console.log('[Test] Extracted mediaUrls:', JSON.stringify(mediaUrls, null, 2));
+        console.log(
+            '[Test] Extracted mediaUrls:',
+            JSON.stringify(mediaUrls, null, 2)
+        );
         return mediaUrls;
     } catch (error) {
         console.error(`[Test] Extraction failed: ${error.message}`);
@@ -128,14 +163,16 @@ if (require.main === module) {
     const args = process.argv.slice(2);
     if (args.length < 2) {
         console.log('Usage: npm test -- <downloader> <url> [useProxy]');
-        console.log('Example: npm test -- "小红书图片下载器" "https://xhslink.com/o/..." true');
+        console.log(
+            'Example: npm test -- "小红书图片下载器" "https://xhslink.com/o/..." true'
+        );
         process.exit(1);
     }
 
     const [downloader, url, useProxyInput] = args;
     const useProxy = useProxyInput || 'false';
 
-    testExtractByUrl(url, downloader, useProxy).catch(error => {
+    testExtractByUrl(url, downloader, useProxy).catch(() => {
         process.exit(1);
     });
 }

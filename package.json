@@ -6,8 +6,14 @@
     "scripts": {
         "start": "node app.js",
         "test": "node tests/extractTest.js",
-        "lint": "eslint --config eslint.config.js .",
-        "lint:fix": "eslint --config eslint.config.js . --fix"
+        "lint": "eslint --config eslint.config.js . && stylelint \"**/*.{css,scss,less}\" --allow-empty-input",
+        "lint:fix": "eslint --config eslint.config.js . --fix && stylelint \"**/*.{css,scss,less}\" --fix --allow-empty-input",
+        "format": "prettier . --write",
+        "format:check": "prettier . --check",
+        "check": "npm run lint && npm run format:check",
+        "fix": "npm run lint:fix && npm run format",
+        "prepare": "node -e \"try { require.resolve('husky') } catch { process.exit(0) } import('husky').then(m => m.default())\"",
+        "precommit": "lint-staged --concurrent false"
     },
     "author": "iBenzene",
     "dependencies": {
@@ -19,9 +25,33 @@
         "fluent-ffmpeg": "^2.1.3"
     },
     "devDependencies": {
-        "@eslint/js": "^10.0.1",
         "dotenv": "^17.2.3",
-        "eslint": "^10.0.0",
-        "globals": "^17.3.0"
+        "@eslint/js": "^10.0.1",
+        "@prettier/plugin-pug": "^3.6.0",
+        "@typescript-eslint/eslint-plugin": "^8.72.1",
+        "@typescript-eslint/parser": "^8.72.1",
+        "eslint": "^10.13.0",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-plugin-jsonc": "^3.4.2",
+        "eslint-plugin-perfectionist": "^5.13.0",
+        "eslint-plugin-prettier": "^5.5.7",
+        "eslint-plugin-vue": "^10.12.0",
+        "globals": "^17.13.0",
+        "husky": "^9.1.7",
+        "lint-staged": "^17.6.0",
+        "postcss-less": "^6.0.0",
+        "postcss-scss": "^4.0.9",
+        "prettier": "^3.9.10",
+        "stylelint": "^17.16.0",
+        "stylelint-config-standard": "^40.0.0",
+        "stylelint-config-standard-less": "^4.1.0",
+        "stylelint-config-standard-scss": "^17.0.0",
+        "stylelint-order": "^8.1.2",
+        "stylelint-prettier": "^5.0.3",
+        "typescript": "~6.0.3",
+        "vue-eslint-parser": "^10.4.1"
+    },
+    "engines": {
+        "node": ">=24.0.0"
     }
 }
