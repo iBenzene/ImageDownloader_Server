@@ -9,7 +9,7 @@
 ### 🐳 Docker 部署
 
 ```bash
-sudo docker run -p 3080:3080 -e TOKEN=your_token ghcr.io/ibenzene/image-downloader_server
+docker run -p 3080:3080 -e TOKEN=your_token ghcr.io/ibenzene/image-downloader_server
 ```
 
 或者
@@ -19,7 +19,7 @@ name: image-downloader
 
 services:
     server:
-        image: ghcr.io/ibenzene/image-downloader_server
+        image: ghcr.io/ibenzene/image-downloader_server:latest
         container_name: image-downloader_server
         ports:
             - 3080:3080
